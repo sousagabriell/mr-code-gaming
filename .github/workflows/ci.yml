@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  qualidade:
+    name: Lint, tipos, testes e build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+      - run: npm run lint
+      - name: Tipos
+        run: npx tsc -b
+      - name: Testes unitários
+        run: npm test
+      # Build com o mesmo base path da produção (/city/) para pegar caminhos quebrados cedo.
+      - name: Build (produção)
+        run: npm run build
+        env:
+          VITE_BASE: /city/
+
+# Os testes E2E (npm run e2e) precisam do backend do MrCodeAdmin rodando com dados —
+# rodam localmente; ver docs/MANUAL-TECNICO.md §15.

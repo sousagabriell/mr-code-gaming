@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { Suspense, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { RoundedBox } from '@react-three/drei';
 import { easing } from 'maath';
@@ -6,12 +6,15 @@ import type { Group } from 'three';
 import { COLORS } from '../world/colors';
 import type { Unlock } from '../world/gamification';
 import { LANDMARK_Z, type Vec3 } from '../world/layout';
+import { TOWER_MODEL } from './assets';
+import { Prop } from './Prop';
+import { motion } from './motion';
 
 /** Construção desbloqueada "brota" do chão ao aparecer. */
 function Rise({ position, children }: { position: Vec3; children: ReactNode }) {
   const ref = useRef<Group>(null);
   useLayoutEffect(() => {
-    ref.current?.scale.set(1, 0.001, 1);
+    if (!motion.reduced) ref.current?.scale.set(1, 0.001, 1);
   }, []);
   useFrame((_, delta) => {
     if (ref.current) easing.damp(ref.current.scale, 'y', 1, 0.5, delta);
@@ -26,6 +29,7 @@ function Rise({ position, children }: { position: Vec3; children: ReactNode }) {
 function Fonte() {
   const jet = useRef<Group>(null);
   useFrame(({ clock }) => {
+    if (motion.reduced) return;
     if (jet.current) jet.current.scale.y = 1 + Math.sin(clock.elapsedTime * 3) * 0.15;
   });
   return (
@@ -116,6 +120,7 @@ function Parque() {
 function RodaGigante() {
   const wheel = useRef<Group>(null);
   useFrame((_, delta) => {
+    if (motion.reduced) return;
     if (wheel.current) wheel.current.rotation.z += delta * 0.25;
   });
   const cabins = Array.from({ length: 8 }, (_, i) => (i / 8) * Math.PI * 2);
@@ -155,24 +160,8 @@ function RodaGigante() {
 }
 
 function Torre() {
-  return (
-    <>
-      <mesh position={[0, 3, 0]} castShadow receiveShadow>
-        <boxGeometry args={[1.6, 6, 1.6]} />
-        <meshStandardMaterial color="#bcd2fb" roughness={0.15} metalness={0.3} />
-      </mesh>
-      {Array.from({ length: 11 }, (_, i) => (
-        <mesh key={i} position={[0, 0.5 + i * 0.5, 0]}>
-          <boxGeometry args={[1.64, 0.04, 1.64]} />
-          <meshStandardMaterial color={COLORS.wall} />
-        </mesh>
-      ))}
-      <mesh position={[0, 6.5, 0]}>
-        <cylinderGeometry args={[0.03, 0.03, 1, 6]} />
-        <meshStandardMaterial color="#64748b" />
-      </mesh>
-    </>
-  );
+  // Arranha-céu do City Kit — o mais alto da cidade depois do Banco.
+  return <Prop url={TOWER_MODEL} size={1.7} />;
 }
 
 function Heliponto() {
@@ -237,7 +226,7 @@ export function CityDecor({ unlocked }: { unlocked: Unlock[] }) {
     <>
       {unlocked.map((u) => (
         <Rise key={u.key} position={PLACEMENT[u.key].position}>
-          {PLACEMENT[u.key].node()}
+          <Suspense fallback={null}>{PLACEMENT[u.key].node()}</Suspense>
         </Rise>
       ))}
     </>

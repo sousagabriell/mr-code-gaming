@@ -133,6 +133,9 @@ function PaletteBody() {
   return (
     <div className="pointer-events-auto absolute inset-0 z-50 flex justify-center bg-ink/20 px-4 pt-[12vh] backdrop-blur-[2px]" onPointerDown={() => setOpen(false)}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Buscar na cidade"
         className="flex h-fit max-h-[70vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-float"
         onPointerDown={(e) => e.stopPropagation()}
       >

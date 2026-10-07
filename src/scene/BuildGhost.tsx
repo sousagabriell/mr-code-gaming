@@ -6,6 +6,7 @@ import { COLORS } from '../world/colors';
 import type { Vec3 } from '../world/layout';
 import { useUiStore } from '../store/uiStore';
 import { labelsPortalTarget } from './labelsPortal';
+import { motion } from './motion';
 
 /** Modo construção: sede-fantasma no próximo lote livre. Clicar abre o formulário de novo cliente. */
 export function BuildGhost({ lot, active }: { lot: Vec3; active: boolean }) {
@@ -13,6 +14,7 @@ export function BuildGhost({ lot, active }: { lot: Vec3; active: boolean }) {
   const openDrawer = useUiStore((s) => s.openDrawer);
 
   useFrame(({ clock }) => {
+    if (motion.reduced) return;
     if (ref.current) ref.current.position.y = 0.05 + Math.sin(clock.elapsedTime * 2) * 0.05;
   });
 

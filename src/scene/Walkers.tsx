@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { Suspense, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import type { Group } from 'three';
 import { useAllKanbans } from '../api/queries';
@@ -7,7 +7,9 @@ import { useUiStore } from '../store/uiStore';
 import { COLORS } from '../world/colors';
 import { LANDMARK_Z, type CityLayout, type Vec3 } from '../world/layout';
 import { pathLength, pointAt, walkerRoute, type Path } from '../world/routes';
+import { characterFor } from './assets';
 import { useRegisterMover } from './movers';
+import { CharacterModel, type CharacterAnimation } from './people/CharacterModel';
 import { SceneTag } from './SceneTag';
 import { useHover } from './useHover';
 
@@ -27,14 +29,18 @@ interface WalkerPlan {
 
 type Phase = 'rest' | 'go' | 'work' | 'back';
 
+/** Animação da Kenney para cada fase do trajeto. */
+const ANIMATION: Record<Phase, CharacterAnimation> = { rest: 'idle', go: 'walk', work: 'interact-right', back: 'walk' };
+
 /**
  * Colaborador indo da praça até os canteiros dos projetos em que tem atividade aberta, trabalhando
  * um pouco e voltando — em rodízio entre os projetos.
  */
 function Walker({ plan }: { plan: WalkerPlan }) {
   const ref = useRef<Group>(null);
-  const bodyRef = useRef<Group>(null);
   const phase = useRef<Phase>('rest');
+  // Estado só para trocar a animação (muda poucas vezes por ciclo; a posição é por frame, sem re-render).
+  const [anim, setAnim] = useState<Phase>('rest');
   const dist = useRef(0);
   const timer = useRef(seeded(plan.id) * 6);
   const routeIdx = useRef(0);
@@ -79,8 +85,9 @@ function Walker({ plan }: { plan: WalkerPlan }) {
     const { position, heading } = pointAt(route.path, dist.current);
     g.position.set(position[0], 0, position[2]);
     const moving = phase.current === 'go' || phase.current === 'back';
+    // O personagem da Kenney olha para +z: heading (atan2(dx, dz)) já é a rotação certa.
     if (moving) g.rotation.y = phase.current === 'go' ? heading : heading + Math.PI;
-    if (bodyRef.current) bodyRef.current.position.y = moving ? Math.abs(Math.sin(clock.elapsedTime * 9)) * 0.03 : 0;
+    if (phase.current !== anim) setAnim(phase.current);
   });
 
   const shirt = SHIRTS[plan.id % SHIRTS.length];
@@ -95,28 +102,16 @@ function Walker({ plan }: { plan: WalkerPlan }) {
       }}
       {...bind}
     >
-      <group ref={bodyRef}>
-        <mesh position={[0, 0.13, 0]} castShadow>
-          <capsuleGeometry args={[0.06, 0.12, 4, 8]} />
-          <meshStandardMaterial color={shirt} emissive="#ffffff" emissiveIntensity={hovered || isSelected ? 0.25 : 0} />
-        </mesh>
-        <mesh position={[0, 0.29, 0]} castShadow>
-          <sphereGeometry args={[0.05, 12, 10]} />
-          <meshStandardMaterial color="#f1c7a5" />
-        </mesh>
-        {/* Capacete de obra */}
-        <mesh position={[0, 0.315, 0]}>
-          <sphereGeometry args={[0.056, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
-          <meshStandardMaterial color={COLORS.warning} />
-        </mesh>
-      </group>
+      <Suspense fallback={null}>
+        <CharacterModel url={characterFor(plan.id)} animation={ANIMATION[anim]} highlight={hovered || isSelected} />
+      </Suspense>
       {/* Área de clique maior que o bonequinho */}
       <mesh position={[0, 0.2, 0]} visible={false}>
         <boxGeometry args={[0.35, 0.45, 0.35]} />
       </mesh>
       <SceneTag
         visible={hovered || isSelected}
-        position={[0, 0.65, 0]}
+        position={[0, 0.7, 0]}
         code={plan.nome.split(' ')[0]}
         text={projetos || undefined}
         accent={shirt}

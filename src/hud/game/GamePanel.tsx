@@ -213,13 +213,21 @@ export function GamePanel() {
   if (!open) return null;
 
   return (
-    <div ref={ref} className="pointer-events-auto absolute left-4 top-[76px] z-40 w-[min(420px,calc(100vw-32px))]">
+    <div
+      ref={ref}
+      role="dialog"
+      aria-label="Painel do jogo"
+      className="pointer-events-auto absolute left-4 top-[76px] z-40 w-[min(420px,calc(100vw-32px))] max-md:left-3 max-md:top-16"
+    >
       <Glass className="flex max-h-[calc(100dvh-100px)] flex-col overflow-hidden bg-white/95">
         <div className="flex items-center gap-2 px-4 pt-3">
-          <div className="flex flex-1 gap-0.5 overflow-x-auto rounded-lg bg-surface-2 p-0.5">
+          <div role="tablist" aria-label="Seções do jogo" className="flex flex-1 gap-0.5 overflow-x-auto rounded-lg bg-surface-2 p-0.5">
             {TABS.map((t) => (
               <button
                 key={t.id}
+                role="tab"
+                aria-selected={tab === t.id}
+                autoFocus={tab === t.id}
                 onClick={() => openPanel(t.id)}
                 className={cx(
                   'whitespace-nowrap rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors',
@@ -234,7 +242,7 @@ export function GamePanel() {
             <X className="h-4 w-4" />
           </IconButton>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div role="tabpanel" className="min-h-0 flex-1 overflow-y-auto p-4">
           {tab === 'missoes' && <Missoes />}
           {tab === 'conquistas' && <Conquistas />}
           {tab === 'ranking' && <Ranking />}

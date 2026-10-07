@@ -3,6 +3,8 @@ import { useCityEvents } from '../../store/cityEvents';
 import type { FaturaDTO } from '../../types/domain';
 import type { CityLayout, TruckPlot } from '../../world/layout';
 import { armoredRoute } from '../../world/routes';
+import { vehicleFor } from '../assets';
+import { motion } from '../motion';
 
 /**
  * Compara os dados a cada atualização (refetch ou mutação otimista) e transforma mudanças em
@@ -18,9 +20,9 @@ export function useCityEventDetector(layout: CityLayout, faturas: FaturaDTO[], l
     const { ready, setReady, push } = useCityEvents.getState();
     const trucks = new Map(layout.trucks.map((t) => [t.chamado.idChamado, t]));
 
-    if (ready && prevTrucks.current && prevFaturas.current) {
+    if (ready && !motion.reduced && prevTrucks.current && prevFaturas.current) {
       for (const [id, t] of prevTrucks.current) {
-        if (!trucks.has(id)) push({ id: `leave-${id}-${Date.now()}`, kind: 'truck-leave', from: t.position, origem: t.chamado.origem });
+        if (!trucks.has(id)) push({ id: `leave-${id}-${Date.now()}`, kind: 'truck-leave', from: t.position, vehicle: vehicleFor(t.chamado) });
       }
       const bank = layout.landmarks.find((l) => l.kind === 'banco')?.position;
       for (const f of faturas) {

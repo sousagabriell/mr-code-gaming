@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { goHome, panStep, rotateQuarter, zoomStep } from '../hud/camera';
 import { useGameStore } from '../store/gameStore';
+import { usePrefsStore } from '../store/prefsStore';
 import { useUiStore } from '../store/uiStore';
 
 function isTyping(target: EventTarget | null): boolean {
@@ -40,6 +41,11 @@ export function useKeyboardShortcuts() {
           e.preventDefault();
           ui.setSearchOpen(true);
           break;
+        case 'l': {
+          const prefs = usePrefsStore.getState();
+          prefs.setViewMode(prefs.viewMode === 'lista' ? '3d' : 'lista');
+          break;
+        }
         case 'g':
           if (game.panelOpen) game.closePanel();
           else game.openPanel();

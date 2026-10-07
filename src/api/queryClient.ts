@@ -24,6 +24,8 @@ export const qk = {
   projetos: ['projetos'],
   projeto: (id: number) => ['projetos', id],
   chamados: ['chamados'],
+  // Sob o prefixo 'chamados': invalidar a lista também atualiza o detalhe.
+  chamado: (id: number) => ['chamados', id],
   faturas: ['faturas'],
   despesas: ['despesas'],
   wiki: ['wiki'],

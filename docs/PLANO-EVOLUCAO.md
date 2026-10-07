@@ -20,7 +20,7 @@
 | 3 — Operar pelo jogo | 🟡 cliente (criar/editar/ativar), projeto (criar), chamado (abrir/status/assumir) e fatura (pagar) prontos |
 | 4 — Pátio do Kanban | ✅ concluída |
 | 5 — Gamificação | ✅ concluída (derivada dos dados; sem tabela no backend) |
-| 6 — Polimento | ⏳ não iniciada |
+| 6 — Polimento | ✅ concluída (deploy automático fica a decidir) |
 
 ---
 
@@ -258,10 +258,14 @@ Cuidados: XP nunca deve incentivar ação errada (ex.: fechar chamado sem resolv
 (ex.: chamado fechado sem reabertura em 7 dias) e não volume bruto.
 
 ### Fase 6 — Polimento (contínuo)
-- [ ] Onboarding guiado (tour de 5 passos na primeira vez)
-- [ ] Responsivo: no celular, trays viram bottom sheet e o inspector vira painel deslizante
-- [ ] Acessibilidade: tudo operável por teclado, alternativa em lista 2D, `prefers-reduced-motion` desliga animações
-- [ ] Orçamento de performance (draw calls, tamanho dos assets), testes E2E, build/deploy junto ao MrCodeAdmin
+- [x] Onboarding guiado (tour de 5 passos na primeira vez; revisível pelo menu)
+- [x] Responsivo: no celular, inspector vira bottom sheet e há barra de ações ao alcance do polegar
+- [x] Acessibilidade: modo lista 2D (tecla L; fallback sem WebGL), foco visível, diálogos rotulados,
+      contraste AA, movimento reduzido (sistema ou menu)
+- [x] Orçamento de performance (`?perf`; ≤ 450 draw calls) e code-splitting (login ≈ 85 KB gzip)
+- [x] Testes E2E (Playwright, 6 testes somente leitura) e CI (lint, tipos, unit, build)
+- [x] Build em subcaminho (`VITE_BASE=/city/`) + snippet Nginx
+- [ ] Deploy automático (incluir no `cd.yml` do MrCodeAdmin? — decisão de infraestrutura)
 
 ---
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIsFetching } from '@tanstack/react-query';
-import { Box, ChevronDown, LogOut, Search, Volume2, VolumeX } from 'lucide-react';
+import { Box, ChevronDown, Footprints, List, LogOut, Search, Volume2, VolumeX, Wind } from 'lucide-react';
 import { useWorld } from '../hooks/useWorld';
 import { formatClock } from '../lib/format';
 import { useAuthStore } from '../store/authStore';
@@ -9,17 +9,19 @@ import { label } from '../world/status';
 import { DistrictSelector } from './DistrictSelector';
 import { HealthChip, LevelBadge } from './game/GameChips';
 import { useGameStore } from '../store/gameStore';
+import { usePrefsStore, webglAvailable } from '../store/prefsStore';
+import { useTourStore } from '../store/tourStore';
 import { NotificationBell } from './NotificationBell';
 import { cx } from './tones';
 import { useClickOutside } from './useClickOutside';
 
 function Logo() {
   return (
-    <div className="flex items-center gap-2 pr-2">
+    <div className="flex items-center gap-2 sm:pr-2">
       <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-white shadow-[0_6px_16px_rgb(19_76_237/0.35)]">
         <Box className="h-5 w-5" strokeWidth={2.2} />
       </span>
-      <span className="leading-tight">
+      <span className="hidden leading-tight sm:block">
         <span className="block text-[17px] font-bold tracking-tight text-ink">MrCode</span>
         <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">City</span>
       </span>
@@ -32,11 +34,13 @@ function SearchTrigger() {
   return (
     <button
       onClick={() => setSearchOpen(true)}
-      className="flex h-11 w-full max-w-md items-center gap-2.5 rounded-xl border border-white/70 bg-white/85 px-3.5 text-left text-[13px] text-ink-3 shadow-card backdrop-blur-xl hover:text-ink-2"
+      data-tour="search"
+      aria-label="Buscar (atalho /)"
+      className="flex h-11 w-11 items-center justify-center gap-2.5 rounded-xl border border-white/70 bg-white/85 text-left text-[13px] text-ink-3 shadow-card backdrop-blur-xl hover:text-ink-2 sm:w-full sm:max-w-md sm:justify-start sm:px-3.5"
     >
       <Search className="h-4 w-4 shrink-0" />
-      <span className="flex-1 truncate">Buscar clientes, projetos, chamados, faturas…</span>
-      <kbd className="rounded-md border border-line bg-surface-2 px-1.5 text-[11px] font-semibold text-ink-2">/</kbd>
+      <span className="hidden flex-1 truncate sm:block">Buscar clientes, projetos, chamados, faturas…</span>
+      <kbd className="hidden rounded-md border border-line bg-surface-2 px-1.5 text-[11px] font-semibold text-ink-2 sm:block">/</kbd>
     </button>
   );
 }
@@ -70,6 +74,9 @@ function UserMenu() {
   const { usuario, logout } = useAuthStore();
   const sound = useGameStore((s) => s.sound);
   const toggleSound = useGameStore((s) => s.toggleSound);
+  const reduceMotion = usePrefsStore((s) => s.reduceMotion);
+  const toggleReduceMotion = usePrefsStore((s) => s.toggleReduceMotion);
+  const startTour = useTourStore((s) => s.start);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const close = useCallback(() => setOpen(false), []);
@@ -88,7 +95,7 @@ function UserMenu() {
         <span className="grid h-9 w-9 place-items-center rounded-full bg-linear-to-br from-brand to-brand-purple text-[13px] font-bold text-white">
           {iniciais}
         </span>
-        <span className="hidden text-left leading-tight lg:block">
+        <span className="hidden whitespace-nowrap text-left leading-tight 2xl:block">
           <span className="block text-[13px] font-semibold text-ink">{usuario?.nome}</span>
           <span className="block text-[11px] text-ink-3">{label(usuario?.tipoUsuario ?? '')}</span>
         </span>
@@ -110,6 +117,25 @@ function UserMenu() {
             Sons do jogo: {sound ? 'ligados' : 'desligados'}
           </button>
           <button
+            onClick={toggleReduceMotion}
+            role="switch"
+            aria-checked={reduceMotion}
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium text-ink-2 hover:bg-surface-2"
+          >
+            <Wind className="h-4 w-4" />
+            Reduzir animações: {reduceMotion ? 'sim' : 'segue o sistema'}
+          </button>
+          <button
+            onClick={() => {
+              setOpen(false);
+              startTour();
+            }}
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium text-ink-2 hover:bg-surface-2"
+          >
+            <Footprints className="h-4 w-4" />
+            Ver o tour de novo
+          </button>
+          <button
             onClick={logout}
             className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium text-bad hover:bg-bad-soft"
           >
@@ -121,9 +147,29 @@ function UserMenu() {
   );
 }
 
+/** Alterna cidade 3D ⇄ lista 2D (tecla L). Sem WebGL, só a lista existe e o botão some. */
+function ViewToggle() {
+  const viewMode = usePrefsStore((s) => s.viewMode);
+  const setViewMode = usePrefsStore((s) => s.setViewMode);
+  if (!webglAvailable) return null;
+  const lista = viewMode === 'lista';
+  return (
+    <button
+      onClick={() => setViewMode(lista ? '3d' : 'lista')}
+      aria-pressed={lista}
+      data-tour="view"
+      title={lista ? 'Ver como cidade 3D (L)' : 'Ver como lista (L)'}
+      className="hidden h-10 items-center gap-1.5 rounded-xl border border-white/70 bg-white/85 px-3 text-[12px] font-semibold text-ink-2 shadow-card backdrop-blur-xl hover:text-ink md:flex"
+    >
+      {lista ? <Box className="h-4 w-4" /> : <List className="h-4 w-4" />}
+      <span className="hidden xl:inline">{lista ? 'Cidade' : 'Lista'}</span>
+    </button>
+  );
+}
+
 export function TopBar() {
   return (
-    <header className="pointer-events-auto absolute inset-x-0 top-0 z-30 flex items-center gap-3 px-4 pt-3">
+    <header className="pointer-events-auto absolute inset-x-0 top-0 z-30 flex items-center gap-2 px-3 pt-3 sm:gap-3 sm:px-4">
       <Logo />
       <LevelBadge />
       <div className="flex flex-1 justify-center">
@@ -132,6 +178,7 @@ export function TopBar() {
       <div className="hidden md:block">
         <DistrictSelector />
       </div>
+      <ViewToggle />
       <HealthChip />
       <div className="hidden sm:block">
         <LiveIndicator />

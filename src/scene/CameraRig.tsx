@@ -6,6 +6,7 @@ import { useCityLayout, useWorld } from '../hooks/useWorld';
 import { useYard } from '../hooks/useYard';
 import { entityKey, useUiStore } from '../store/uiStore';
 import { getMover } from './movers';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { OVERVIEW_CAMERA, type Vec3 } from '../world/layout';
 import { entityPosition } from '../world/positions';
 import { YARD_CAMERA } from '../world/yard';
@@ -23,6 +24,12 @@ export function CameraRig() {
   const layout = useCityLayout();
   const { chamados, faturas } = useWorld();
   const { idProjeto: yard, layout: yardLayout } = useYard();
+  const reduced = useReducedMotion();
+
+  // Movimento reduzido: a câmera "corta" para o destino em vez de deslizar.
+  useEffect(() => {
+    if (controlsRef.current) controlsRef.current.smoothTime = reduced ? 0.0001 : 0.25;
+  }, [reduced]);
 
   useEffect(() => {
     const controls = controlsRef.current;

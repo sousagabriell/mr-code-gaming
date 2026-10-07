@@ -2,12 +2,14 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import type { Group } from 'three';
 import type { Vec3 } from '../world/layout';
+import { motion } from './motion';
 
 /** Pin de mapa flutuante — marca entidades que pedem atenção (chamado Alta, fatura atrasada). */
 export function MapPin({ position, color, scale = 1 }: { position: Vec3; color: string; scale?: number }) {
   const ref = useRef<Group>(null);
 
   useFrame(({ clock }) => {
+    if (motion.reduced) return;
     if (ref.current) ref.current.position.y = position[1] + Math.sin(clock.elapsedTime * 2.4) * 0.06;
   });
 

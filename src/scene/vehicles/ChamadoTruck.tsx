@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { Suspense, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { easing } from 'maath';
 import type { Group } from 'three';
@@ -8,8 +8,11 @@ import type { TruckPlot } from '../../world/layout';
 import { useRegisterMover } from '../movers';
 import { SceneTag } from '../SceneTag';
 import { useHover } from '../useHover';
+import { boxModel, vehicleFor } from '../assets';
+import { Prop } from '../Prop';
 import { origemColor } from './origemColor';
-import { TruckModel } from './TruckModel';
+import { VehicleModel } from './VehicleModel';
+import { motion } from '../motion';
 
 /** Velocidade máxima na rua (unidades/s) — chega com desaceleração suave. */
 const MAX_SPEED = 3.2;
@@ -22,7 +25,7 @@ export function ChamadoTruck({ plot, entryX }: { plot: TruckPlot; entryX: number
   const ref = useRef<Group>(null);
   const placed = useRef(false);
   // Decidido na montagem: caminhões da primeira carga já aparecem estacionados.
-  const [arriving] = useState(() => useCityEvents.getState().ready);
+  const [arriving] = useState(() => useCityEvents.getState().ready && !motion.reduced);
   const select = useUiStore((s) => s.select);
   const isSelected = useUiStore((s) => s.selected?.kind === 'chamado' && s.selected.id === plot.chamado.idChamado);
   const { hovered, bind } = useHover();
@@ -39,6 +42,10 @@ export function ChamadoTruck({ plot, entryX }: { plot: TruckPlot; entryX: number
       g.position.set(arriving ? entryX : tx, 0, tz);
       placed.current = true;
     }
+    if (motion.reduced) {
+      g.position.set(tx, 0, tz);
+      return;
+    }
     // Também cobre a "fila andando" quando um caminhão da frente vai embora.
     easing.damp(g.position, 'x', tx, 0.45, delta, MAX_SPEED);
     easing.damp(g.position, 'z', tz, 0.3, delta, MAX_SPEED);
@@ -53,19 +60,17 @@ export function ChamadoTruck({ plot, entryX }: { plot: TruckPlot; entryX: number
       }}
       {...bind}
     >
-      <TruckModel
-        stripe={origemColor(chamado.origem)}
-        doorOpen={unloading}
-        beacon={chamado.prioridade === 'Alta'}
-        highlight={hovered || isSelected}
-      />
-      {unloading &&
-        [0, 1].map((i) => (
-          <mesh key={i} position={[-0.78 - i * 0.22, 0.09, 0.05 - i * 0.12]} castShadow>
-            <boxGeometry args={[0.18, 0.18, 0.18]} />
-            <meshStandardMaterial color="#d9b48a" />
-          </mesh>
-        ))}
+      <Suspense fallback={null}>
+        <VehicleModel
+          kind={vehicleFor(chamado)}
+          doorOpen={unloading}
+          beacon={chamado.prioridade === 'Alta'}
+          highlight={hovered || isSelected}
+        />
+        {/* Em atendimento: porta do baú aberta e caixas descarregadas na calçada. */}
+        {unloading &&
+          [0, 1].map((i) => <Prop key={i} url={boxModel} size={0.2} position={[-0.8 - i * 0.24, 0, 0.06 - i * 0.14]} rotationY={i * 0.5} />)}
+      </Suspense>
       <SceneTag
         visible={hovered || isSelected}
         position={[0, 0.95, 0]}

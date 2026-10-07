@@ -42,6 +42,8 @@ export const api = {
   },
   chamados: {
     list: () => http.get<ChamadoDTO[]>('/Chamado'),
+    /** O detalhe traz o vínculo com a atividade do Kanban — a lista vem com esses campos nulos. */
+    get: (id: number) => http.get<ChamadoDTO>(`/Chamado/${id}`),
     createInterno: (dto: CadastroChamadoInternoDTO) => http.post<ChamadoDTO>('/Chamado/interno', dto),
     setStatus: (id: number, status: ChamadoStatus) => http.patch<ChamadoDTO>(`/Chamado/${id}/status`, { status }),
     setResponsavel: (id: number, idUsuarioAdmin: number) =>

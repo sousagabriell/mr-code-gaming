@@ -13,6 +13,8 @@ export function LevelBadge() {
   return (
     <button
       onClick={() => openPanel('cidade')}
+      data-tour="level"
+      aria-label={`Nível ${level.level}, ${xp.total} XP — abrir painel do jogo`}
       className="flex items-center gap-2 rounded-xl border border-white/70 bg-white/85 py-1 pl-1 pr-3 shadow-card backdrop-blur-xl hover:bg-white"
       title={`${xp.total.toLocaleString('pt-BR')} XP · faltam ${(level.xpForNext - level.xpInLevel).toLocaleString('pt-BR')} para o nível ${level.level + 1}`}
     >
@@ -40,7 +42,7 @@ export function LevelBadge() {
         </svg>
         <span className="text-[13px] font-extrabold text-ink tabular">{level.level}</span>
       </span>
-      <span className="hidden text-left leading-tight xl:block">
+      <span className="hidden whitespace-nowrap text-left leading-tight xl:block">
         <span className="block text-[12px] font-bold text-ink">Nível {level.level}</span>
         <span className="block text-[11px] text-ink-3 tabular">{xp.total.toLocaleString('pt-BR')} XP</span>
       </span>
@@ -58,6 +60,8 @@ export function HealthChip() {
   return (
     <button
       onClick={() => openPanel('saude')}
+      data-tour="health"
+      aria-label={`Saúde da cidade ${health.score} de 100, ${meta.label}`}
       className={cx('flex h-9 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold', TONE_CLASS[meta.tone])}
       title={`Saúde da cidade: ${health.score}/100 · ${meta.label}`}
     >

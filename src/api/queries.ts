@@ -51,3 +51,6 @@ export function useAllKanbans(projetos: ProjetoDTO[]) {
     return byProjeto;
   }, [datas, ids]);
 }
+
+export const useChamadoDetalheQuery = (id: number | null) =>
+  useQuery({ queryKey: qk.chamado(id ?? 0), queryFn: () => api.chamados.get(id!), enabled: id !== null });

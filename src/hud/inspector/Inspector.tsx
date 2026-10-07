@@ -30,12 +30,19 @@ function Content() {
 }
 
 /** Card de detalhe à direita (o "FORKLIFT · WH-01" da referência). */
-export function Inspector() {
+export function Inspector({ sheet = false }: { sheet?: boolean }) {
   const selected = useUiStore((s) => s.selected);
   if (!selected) return null;
   return (
     // empty:hidden — se a entidade sumiu (ex.: removida, link antigo), não sobra um card vazio.
-    <Glass className="flex max-h-full w-[min(352px,calc(100vw-32px))] flex-col overflow-hidden empty:hidden">
+    // `sheet`: no celular ocupa a largura toda e sobe da base (bottom sheet).
+    <Glass
+      className={
+        sheet
+          ? 'flex max-h-[68dvh] w-full flex-col overflow-hidden rounded-b-none bg-white/95 pb-[env(safe-area-inset-bottom)] empty:hidden'
+          : 'flex max-h-full w-[min(352px,calc(100vw-32px))] flex-col overflow-hidden empty:hidden'
+      }
+    >
       <Content />
     </Glass>
   );

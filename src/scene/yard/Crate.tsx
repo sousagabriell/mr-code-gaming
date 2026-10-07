@@ -10,6 +10,7 @@ import { useUiStore } from '../../store/uiStore';
 import { MapPin } from '../MapPin';
 import { SceneTag } from '../SceneTag';
 import { TIPO_COLOR } from './crateColors';
+import { motion } from '../motion';
 
 const GROUND = new Plane(new Vector3(0, 1, 0), 0);
 const hit = new Vector3();
@@ -106,6 +107,10 @@ export function Crate({
     if (drag.current?.active) {
       tmp.set(dragPoint.current.x, 0.7, dragPoint.current.z);
       easing.damp3(g.position, tmp, 0.06, delta);
+      return;
+    }
+    if (motion.reduced) {
+      g.position.set(tx, ty, tz);
       return;
     }
     // Indo para a vaga: sobe um pouco no caminho, como se estivesse sendo carregada.
@@ -205,7 +210,7 @@ export function Crate({
         text={`${atividade.titulo}${atividade.nomeResponsavel ? ` · ${atividade.nomeResponsavel.split(' ')[0]}` : ''}`}
         accent={color}
       />
-      {burstKey > 0 && <DeliveryBurst key={burstKey} color={COLORS.success} />}
+      {burstKey > 0 && !motion.reduced && <DeliveryBurst key={burstKey} color={COLORS.success} />}
     </group>
   );
 }

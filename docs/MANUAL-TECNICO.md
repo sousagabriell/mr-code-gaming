@@ -28,6 +28,8 @@ criar, editar e mover registros pela própria cena.
 16. [Convenções e armadilhas conhecidas](#16-convenções-e-armadilhas-conhecidas)
 17. [Limitações e roadmap](#17-limitações-e-roadmap)
 18. [Referências externas](#18-referências-externas)
+19. [Deploy](#19-deploy)
+20. [Acessibilidade, celular e desempenho](#20-acessibilidade-celular-e-desempenho)
 
 ---
 
@@ -68,7 +70,7 @@ criar, editar e mover registros pela própria cena.
 | Dados | `@tanstack/react-query` 5 | Cache, refetch periódico, mutações otimistas |
 | Estado de UI | zustand 5 | Seleção, câmera, drawer, pátio, jogo, toasts |
 | Formulários | react-hook-form + zod 4 + `@hookform/resolvers` | Validação no cliente |
-| Qualidade | vitest 5, oxlint | Testes unitários e lint |
+| Qualidade | vitest 5, Playwright 1.63, oxlint | Testes unitários, E2E e lint |
 | Fonte | `@fontsource-variable/inter` | Tipografia da UI |
 
 ---
@@ -107,6 +109,7 @@ npm run dev        # http://localhost:5173 (porta fixa: strictPort)
 | `npm run preview` | Serve o build |
 | `npm run lint` | oxlint (meta: zero avisos) |
 | `npm test` | vitest (uma execução) |
+| `npm run e2e` | Playwright (exige backend + `E2E_EMAIL`/`E2E_PASSWORD`) |
 
 ### Como o front fala com a API
 
@@ -177,7 +180,8 @@ Em produção o app deve ser servido sob o mesmo domínio da API (`/api`).
 ```
 src/
 ├── main.tsx                 # Providers (React Query), fonte, CSS
-├── App.tsx                  # Login ⇄ Game; layout da HUD
+├── App.tsx                  # Login ⇄ Game (carregado sob demanda)
+├── Game.tsx                 # Layout da HUD; cidade 3D ⇄ lista; desktop ⇄ celular
 ├── index.css                # Tokens Tailwind (@theme), animações globais
 ├── config/environment.ts    # apiUrl, adminUrl
 │
@@ -203,7 +207,9 @@ src/
 │   ├── uiStore.ts           # Seleção, câmera, drawer, pátio, follow — espelhado na URL
 │   ├── gameStore.ts         # Painel do jogo, celebração, som, progresso salvo
 │   ├── toastStore.ts        # Notificações efêmeras
-│   └── cityEvents.ts        # Animações passageiras (caminhão saindo, carro-forte)
+│   ├── cityEvents.ts        # Animações passageiras (caminhão saindo, carro-forte)
+│   ├── prefsStore.ts        # Modo 3D/lista, reduzir animações, detecção de WebGL
+│   └── tourStore.ts         # Tour guiado (passo atual, "já visto" por usuário)
 │
 ├── hooks/
 │   ├── useWorld.ts          # Todos os dados da cidade + useCityLayout
@@ -212,7 +218,9 @@ src/
 │   ├── useGame.ts           # XP, nível, saúde, missões, ranking, conquistas
 │   ├── useGameProgress.ts   # Observa o jogo e gera toasts/celebrações
 │   ├── useKeyboardShortcuts.ts
-│   └── useNow.ts            # "Agora" como estado (evita Date.now() no render)
+│   ├── useNow.ts            # "Agora" como estado (evita Date.now() no render)
+│   ├── useReducedMotion.ts  # Sistema OU preferência do usuário
+│   └── useIsMobile.ts       # < 768px
 │
 ├── world/                   # Regras puras (testadas)
 │   ├── layout.ts            # Grade de lotes, canteiros, caminhões, ruas
@@ -235,7 +243,8 @@ src/
 │   ├── CityDecor.tsx        # Construções desbloqueadas por nível
 │   ├── Weather.tsx · weatherStyle.ts
 │   ├── SceneTag.tsx · MapPin.tsx · SelectionMarker.tsx · BuildGhost.tsx
-│   ├── labelsPortal.ts · movers.ts · useHover.ts
+│   ├── labelsPortal.ts · movers.ts · useHover.ts · motion.ts
+│   ├── perf.ts · PerfProbe.tsx  # Medidor ?perf (renderer.info)
 │   ├── vehicles/            # TruckModel, ChamadoTruck, EventVehicles, detector de eventos
 │   └── yard/                # KanbanYard, Crate (arrastável), Forklift, crateColors
 │
@@ -247,9 +256,14 @@ src/
 │   ├── forms/               # Cliente, Projeto, Chamado, Atividade, Coluna, ConverterChamado
 │   ├── yard/                # YardPanel, YardTable
 │   ├── game/                # GameChips, GamePanel, LevelUpOverlay, weatherMeta
+│   ├── list/ListView.tsx    # Alternativa 2D (cidade e quadro)
+│   ├── MobileDock.tsx · Tour.tsx · PerfOverlay.tsx
 │   ├── ui.tsx · tones.ts · camera.ts · useClickOutside.ts
 │
 └── components/LoginScreen.tsx
+e2e/                         # Playwright (somente leitura)
+deploy/nginx-city.location.conf
+.github/workflows/ci.yml     # lint · tipos · unit · build
 docs/
 ├── PLANO-EVOLUCAO.md        # Roadmap e status por fase
 └── MANUAL-TECNICO.md        # Este documento
@@ -324,6 +338,9 @@ no campo); `onSettled` invalida os recursos afetados e o `dashboard`.
 | `yard` | Id do projeto cujo pátio está aberto; `null` = cidade |
 | `dragging` | Uma caixa segura o ponteiro (câmera travada) |
 | `searchOpen` | Paleta de busca |
+
+Preferências persistentes ficam em `prefsStore`: `viewMode` (`3d`/`lista`, chave `mrcode-city:view`) e
+`reduceMotion` (`mrcode-city:reduce-motion`). Sem WebGL, `viewMode` é forçado para `lista`.
 
 **Sincronização com a URL** (`history.replaceState`): `?sel=cliente:3` e `?yard=3`. Permite link direto e
 recarregar sem perder o foco. `select()` estando no pátio sai dele (exceto para `atividade`).
@@ -443,7 +460,7 @@ adaptativo. Veja §17 para o que ainda falta (code-splitting, LOD).
 
 ## 10. HUD
 
-Layout (`App.tsx`): topo = barra · esquerda = KPIs e painel do jogo · direita = câmera + inspector ·
+Layout (`Game.tsx`): topo = barra · esquerda = KPIs e painel do jogo · direita = câmera + inspector ·
 base = linha do tempo / pátio + tabela. Tudo em `pointer-events-none` com filhos `auto`.
 
 | Componente | Função |
@@ -610,6 +627,7 @@ Base `/api` (header `Authorization: Bearer <JWT>`). Resposta padrão `{ data, is
 | Tecla | Ação |
 |---|---|
 | `/` | Abrir busca |
+| `L` | Alternar cidade 3D ⇄ lista |
 | `Esc` | Fecha, em ordem: busca → painel do jogo → formulário → modo construção → seleção → pátio |
 | `B` | Modo construção (no pátio: nova atividade) |
 | `G` | Painel do jogo |
@@ -629,8 +647,31 @@ Mouse: esquerdo arrasta o mapa, direito gira, roda dá zoom, duplo clique num ca
 ```bash
 npm test         # vitest — 38 testes
 npm run lint     # oxlint — zero avisos
-npx tsc -b       # tipos
+npx tsc -b       # tipos (app + configs + e2e)
+E2E_EMAIL=... E2E_PASSWORD=... npm run e2e   # Playwright — 6 testes
 ```
+
+### E2E (`e2e/smoke.spec.ts`)
+
+**Somente leitura** — nenhum teste grava no MrCodeAdmin (o de formulário prova que a validação barra o envio).
+Usam o **modo lista** (rápido, sem WebGL) e marcam o tour como visto; um teste de fumaça confirma o canvas 3D.
+
+| Teste | Garante |
+|---|---|
+| modo lista + inspector | dados chegam, seleção abre o card |
+| busca `/` | paleta, filtro e seleção |
+| painel do jogo `G` | 5 abas acessíveis (`role=tab`) |
+| quadro em lista | colunas e inspector da atividade |
+| validação de formulário | zod bloqueia sem chamar `PUT /Cliente` |
+| cidade 3D | canvas renderiza |
+
+Variáveis: `E2E_EMAIL`, `E2E_PASSWORD`, `E2E_BASE_URL` (padrão `http://localhost:5173`), `E2E_CHANNEL`
+(padrão `chrome` = Chrome instalado; no CI use `npx playwright install chromium` e `E2E_CHANNEL=`).
+
+### CI
+
+`.github/workflows/ci.yml` roda em todo push/PR: `npm ci` → lint → `tsc -b` → `npm test` → build com
+`VITE_BASE=/city/`. Os E2E não rodam no CI porque dependem do backend com dados.
 
 | Arquivo | Cobre |
 |---|---|
@@ -669,13 +710,10 @@ Em ambiente sem GPU o render por software roda a ~1 fps — use tempos de espera
 | Conquistas só no navegador | Persistir no backend (`gamificacao_*`) e ranking compartilhado |
 | "Live" por polling (30 s) | SignalR com eventos de domínio |
 | Observabilidade vazia em dev | Flag de mock no backend |
-| Bundle ~1,5 MB | Code-splitting da cena 3D e da HUD (Fase 6) |
-| Sem layout para celular | Bottom sheets e inspector deslizante (Fase 6) |
-| Arrasto não testado em toque | Validar em dispositivo real |
-| Sem testes E2E no repositório | Playwright no CI (Fase 6) |
-| Sem tour de primeiro acesso | Fase 6 |
-
-Fase 6 (polimento) está descrita em [PLANO-EVOLUCAO.md](PLANO-EVOLUCAO.md).
+| Arrasto de caixas não testado em tela de toque real | Validar em dispositivo |
+| ~50 draw calls por cliente | Instanciar sedes/caminhões quando passar de ~15 clientes (§20) |
+| Conquistas e tour "visto" só no navegador | Persistir no backend |
+| Deploy automático do City | Decidir se entra no `cd.yml` do MrCodeAdmin (§19) |
 
 ---
 
@@ -693,3 +731,81 @@ Fase 6 (polimento) está descrita em [PLANO-EVOLUCAO.md](PLANO-EVOLUCAO.md).
 - Tailwind CSS 4 — https://tailwindcss.com/docs
 - Vite — https://vite.dev · Vitest — https://vitest.dev · Oxlint — https://oxc.rs
 - Repositório do backend/painel: `mr-code-admin` (ACESSOS-DEV.txt, DEPLOY.md)
+
+---
+
+## 19. Deploy
+
+O City é estático (pasta `dist/`) e deve ficar **no mesmo domínio do MrCodeAdmin**: assim `/api` funciona sem
+CORS e os links "Abrir no MrCodeAdmin" (caminhos relativos, `adminUrl = ''` em produção) apontam para o Angular.
+
+```bash
+VITE_BASE=/city/ npm ci && npm run build      # base path → assets em /city/assets/...
+rm -rf /opt/mrcodecity/* && cp -r dist/* /opt/mrcodecity/
+chown -R www-data:www-data /opt/mrcodecity
+```
+
+No Nginx do MrCodeAdmin, cole [`deploy/nginx-city.location.conf`](../deploy/nginx-city.location.conf) dentro
+do `server { }` existente (antes do `location /`) e rode `sudo nginx -t && sudo systemctl reload nginx`.
+Resultado: `https://admin.mistercode.com.br/city/`. Arquivos com hash recebem cache de 1 ano; o `index.html`, não.
+
+**Pacotes gerados** (gzip): entrada + `vendor` ≈ 85 KB (tela de login) · `Game` ≈ 78 KB · `r3f` ≈ 176 KB ·
+`three` ≈ 187 KB · `CityScene` ≈ 14 KB. O three.js só é baixado depois do login.
+
+> Não há workflow de deploy automático neste repositório: incluir o City no `cd.yml` do MrCodeAdmin
+> (que faz `git pull` + build na VPS) é uma decisão de infraestrutura em aberto.
+
+---
+
+## 20. Acessibilidade, celular e desempenho
+
+### Modo lista (alternativa 2D)
+
+Botão "Lista" na barra (tecla `L`) troca o canvas por [`ListView`](../src/hud/list/ListView.tsx): clientes,
+chamados, projetos (com botão "Quadro"), faturas e prédios — e, dentro de um projeto, o Kanban em colunas.
+Tudo é `<button>` nativo (Tab/Enter), com `aria-current` no item selecionado, e usa o **mesmo** inspector e os
+mesmos formulários. Para mudar atividade de coluna: "Mover para a zona" no inspector. Sem WebGL, o modo lista é
+forçado e um aviso explica o motivo.
+
+### Teclado e leitores de tela
+
+- Foco visível (`:focus-visible` com contorno da marca) só na navegação por teclado.
+- Busca, painel do jogo (`role=tablist/tab/tabpanel`), drawer de formulário e tour são `role=dialog` rotulados.
+- Barra de câmera é `role=toolbar`; toasts usam `aria-live`; chips de nível/saúde têm `aria-label` descritivo.
+- Contraste: o cinza de texto secundário (`--color-ink-3`) passou de `#94a3b8` (2,6:1) para `#64748b` (4,8:1).
+
+### Movimento reduzido
+
+Liga com `prefers-reduced-motion` do sistema **ou** "Reduzir animações" no menu do usuário. Efeitos:
+câmera corta em vez de deslizar; sem pedestres, chegadas/partidas de veículos e carro-forte; sem chuva nem
+relâmpagos, nuvens paradas; giroflex aceso fixo (sem piscar); caixas, empilhadeiras e caminhões vão direto à
+posição; sem confete. O CSS também reduz as animações. Implementação: `scene/motion.ts` (lido nos `useFrame`) e `useReducedMotion()`.
+
+### Celular (< 768px)
+
+- Barra superior compacta (só ícones), sem KPIs, linha do tempo e tabela.
+- **Inspector vira bottom sheet** (até 68% da altura, respeita a safe area).
+- Sem seleção, uma **barra de ações** ao alcance do polegar: Buscar, Lista/Cidade 3D, Jogo — e, no pátio,
+  Cidade e + Atividade (substituem os atalhos de teclado).
+- Formulários ocupam a tela inteira; um dedo arrasta o mapa, dois dedos fazem zoom e giro.
+
+### Tour de primeiro acesso
+
+5 passos ([`Tour.tsx`](../src/hud/Tour.tsx)): boas-vindas, busca, câmera/construção/pátio, nível e missões,
+saúde/clima. Destaca o elemento marcado com `data-tour` escurecendo o resto; sem alvo visível (ex.: celular) o
+cartão fica centralizado. Setas navegam, `Esc` pula. "Já visto" fica por usuário em `mrcode-city:tour:<id>`;
+dá para rever pelo menu do usuário.
+
+### Orçamento de desempenho
+
+Abra com `?perf` para ver fps, draw calls, triângulos, geometrias e texturas (`renderer.info`).
+
+| Métrica | Orçamento | Medido (5 clientes) |
+|---|---|---|
+| Draw calls — cidade | ≤ 450 | 282 |
+| Draw calls — pátio | ≤ 450 | 105 |
+| Triângulos | ≤ 250 mil | 59 mil (cidade) · 27 mil (pátio) |
+
+Cada cliente soma ~50 draw calls (sede, canteiros e caminhões, contando a sombra). Perto de 15 clientes,
+instancie sedes e caminhões (`<Instances>`) antes de estourar o orçamento. Também ajudam: DPR adaptativo,
+AO só com folga de fps e o modo de movimento reduzido.

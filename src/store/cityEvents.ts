@@ -1,10 +1,11 @@
 import { create } from 'zustand';
+import type { CarModel } from '../scene/assets';
 import type { Vec3 } from '../world/layout';
 import type { Path } from '../world/routes';
 
 /** Animações passageiras disparadas por mudanças nos dados (não existem no backend). */
 export type CityEvent =
-  | { id: string; kind: 'truck-leave'; from: Vec3; origem: string }
+  | { id: string; kind: 'truck-leave'; from: Vec3; vehicle: CarModel }
   | { id: string; kind: 'armored'; path: Path };
 
 interface CityEventsState {

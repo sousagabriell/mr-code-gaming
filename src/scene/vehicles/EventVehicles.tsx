@@ -1,12 +1,10 @@
-import { useMemo, useRef, useState } from 'react';
+import { Suspense, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import type { Group } from 'three';
 import { useCityEvents, type CityEvent } from '../../store/cityEvents';
-import { COLORS } from '../../world/colors';
 import type { Vec3 } from '../../world/layout';
 import { pathLength, pointAt } from '../../world/routes';
-import { origemColor } from './origemColor';
-import { TruckModel } from './TruckModel';
+import { VehicleModel } from './VehicleModel';
 
 /** Chamado resolvido: o caminhão sai da porta do cliente e vai embora pela rua até sumir. */
 function DepartingTruck({ event, exitX }: { event: Extract<CityEvent, { kind: 'truck-leave' }>; exitX: number }) {
@@ -24,7 +22,9 @@ function DepartingTruck({ event, exitX }: { event: Extract<CityEvent, { kind: 't
 
   return (
     <group ref={ref} position={event.from}>
-      <TruckModel stripe={origemColor(event.origem)} />
+      <Suspense fallback={null}>
+        <VehicleModel kind={event.vehicle} />
+      </Suspense>
     </group>
   );
 }
@@ -88,7 +88,10 @@ function ArmoredTruck({ event }: { event: Extract<CityEvent, { kind: 'armored' }
   return (
     <>
       <group ref={ref} position={event.path[0]}>
-        <TruckModel stripe={COLORS.warning} body="#64748b" cab="#475569" />
+        {/* Carro-forte: a van da Kenney em grafite. */}
+        <Suspense fallback={null}>
+          <VehicleModel kind="van" tint="#6b7280" length={1.05} />
+        </Suspense>
       </group>
       {arrived && <CoinBurst position={[end[0], 0, end[2]]} />}
     </>

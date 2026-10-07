@@ -1,5 +1,6 @@
 import { ArrowDownToLine, CheckCircle2, Hand, Lock, Play, RotateCcw, Ticket, Warehouse } from 'lucide-react';
 import { useAlterarStatusChamado, useAtribuirResponsavel } from '../../api/mutations';
+import { useChamadoDetalheQuery } from '../../api/queries';
 import { useWorld } from '../../hooks/useWorld';
 import { formatDateTimeShort, formatRelative, stripHtml } from '../../lib/format';
 import { useAuthStore } from '../../store/authStore';
@@ -38,10 +39,14 @@ export function ChamadoInspector({ id }: { id: number }) {
   const enterYard = useUiStore((s) => s.enterYard);
   const alterarStatus = useAlterarStatusChamado();
   const atribuir = useAtribuirResponsavel();
+  const { data: detalhe } = useChamadoDetalheQuery(id);
 
   const chamado = chamados.find((c) => c.idChamado === id);
   if (!chamado) return null;
 
+  // Vínculo com o Kanban só vem no detalhe (GET /Chamado/{id}).
+  const idAtividade = detalhe?.idAtividadeVinculada ?? chamado.idAtividadeVinculada;
+  const idProjetoAtividade = detalhe?.idProjetoAtividadeVinculada ?? chamado.idProjetoAtividadeVinculada;
   const souResponsavel = usuario && chamado.idUsuarioAdminResponsavel === usuario.idUsuarioAdmin;
   const busy = alterarStatus.isPending || atribuir.isPending;
 
@@ -72,11 +77,8 @@ export function ChamadoInspector({ id }: { id: number }) {
               <t.icon className="h-3.5 w-3.5" /> {t.label}
             </Button>
           ))}
-          {chamado.idAtividadeVinculada && chamado.idProjetoAtividadeVinculada ? (
-            <Button
-              variant="ghost"
-              onClick={() => enterYard(chamado.idProjetoAtividadeVinculada!, { kind: 'atividade', id: chamado.idAtividadeVinculada! })}
-            >
+          {idAtividade && idProjetoAtividade ? (
+            <Button variant="ghost" onClick={() => enterYard(idProjetoAtividade, { kind: 'atividade', id: idAtividade })}>
               <Warehouse className="h-3.5 w-3.5" /> Ver caixa no pátio
             </Button>
           ) : (

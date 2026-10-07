@@ -10,7 +10,7 @@ function CodeBadge({ code, active }: { code: string; active?: boolean }) {
   return (
     <span
       className={cx(
-        'grid h-8 min-w-11 place-items-center rounded-lg px-1.5 text-[11px] font-bold',
+        'grid h-8 min-w-11 place-items-center whitespace-nowrap rounded-lg px-1.5 text-[11px] font-bold',
         active ? 'bg-brand text-white' : 'bg-brand-soft text-brand'
       )}
     >

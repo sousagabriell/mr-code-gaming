@@ -4,6 +4,7 @@ import { Line } from '@react-three/drei';
 import type { Group } from 'three';
 import { COLORS } from '../world/colors';
 import type { Vec3 } from '../world/layout';
+import { motion } from './motion';
 
 /** Colchetes de canto no chão ao redor da seleção ("In 2 · Booked" da referência). */
 export function SelectionMarker({ position, size }: { position: Vec3; size: number }) {
@@ -12,6 +13,7 @@ export function SelectionMarker({ position, size }: { position: Vec3; size: numb
   const arm = size * 0.22;
 
   useFrame(({ clock }) => {
+    if (motion.reduced) return;
     if (ref.current) ref.current.scale.setScalar(1 + Math.sin(clock.elapsedTime * 3) * 0.035);
   });
 

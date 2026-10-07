@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { Html, Line, RoundedBox } from '@react-three/drei';
 import { ChevronLeft, ChevronRight, Pencil, Plus } from 'lucide-react';
 import { useMoverAtividade, useReordenarColuna } from '../../api/kanban';
@@ -9,7 +9,9 @@ import { COLORS } from '../../world/colors';
 import type { Vec3 } from '../../world/layout';
 import { projetoCode } from '../../world/status';
 import { dropIndex, ZONE_D, ZONE_W, zoneAt, type YardCrate, type YardLayout, type YardZone } from '../../world/yard';
+import { coneModel } from '../assets';
 import { labelsPortalTarget } from '../labelsPortal';
+import { Prop } from '../Prop';
 import { SceneTag } from '../SceneTag';
 import { Crate } from './Crate';
 import { Forklift } from './Forklift';
@@ -173,6 +175,11 @@ export function KanbanYard() {
               dashSize={0.25}
               gapSize={0.16}
             />
+            <Suspense fallback={null}>
+              {[-1, 1].map((side) => (
+                <Prop key={side} url={coneModel} size={0.3} fit="height" position={[side * (ZONE_W / 2 - 0.15), 0.05, ZONE_D / 2 - 0.15]} />
+              ))}
+            </Suspense>
             <ZoneLabel zone={zone} count={zone.coluna.atividades.length} idProjeto={idProjeto} total={layout.zones.length} />
           </group>
         );

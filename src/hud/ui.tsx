@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { label, statusTone, type Tone } from '../world/status';
 import { cx, TONE_CLASS, TONE_HEX } from './tones';
@@ -110,7 +110,7 @@ export function Button({
   className,
   children,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
+}: ComponentProps<'button'> & { variant?: ButtonVariant }) {
   return (
     <button
       {...props}
@@ -130,7 +130,7 @@ export function IconButton({
   className,
   children,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
+}: ComponentProps<'button'> & { label: string }) {
   return (
     <button
       {...props}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { AdaptiveDpr, PerformanceMonitor } from '@react-three/drei';
 import { EffectComposer, N8AO } from '@react-three/postprocessing';
@@ -11,6 +11,12 @@ import { Ground } from './Ground';
 import { Landmark } from './Landmark';
 import { SelectionMarker } from './SelectionMarker';
 import { labelsPortal } from './labelsPortal';
+import { perfEnabled } from './perf';
+import { PRELOAD } from './assets';
+import { preloadModels } from './kenney';
+import { motion } from './motion';
+import { useReducedMotion } from '../hooks/useReducedMotion';
+import { PerfProbe } from './PerfProbe';
 import { KanbanYard } from './yard/KanbanYard';
 import { ChamadoTruck } from './vehicles/ChamadoTruck';
 import { EventVehicles } from './vehicles/EventVehicles';
@@ -25,6 +31,9 @@ import { WEATHER_STYLE } from './weatherStyle';
 import { OVERVIEW_CAMERA } from '../world/layout';
 import { entityPosition } from '../world/positions';
 
+
+// Baixa em paralelo os modelos que quase toda cidade usa, assim que este pedaço do app carrega.
+preloadModels(PRELOAD);
 
 function selectionSize(kind: string): number {
   if (kind === 'projeto') return 1.3;
@@ -48,29 +57,36 @@ function City() {
 
   // Pedestres "genéricos" só para dar vida à praça; quem tem atividade aberta anda pelas ruas (Walkers).
   const citizenCount = 4;
+  const reduced = useReducedMotion();
   useCityEventDetector(layout, world.faturas, !world.isLoading);
 
   return (
     <>
       <Ground layout={layout} buildMode={buildMode} />
 
+      {/* Cada modelo tem sua própria fronteira: um download novo não esconde o resto da cidade. */}
       {layout.landmarks.map((l) => (
-        <Landmark key={l.kind} kind={l.kind} position={l.position} />
+        <Suspense key={l.kind} fallback={null}>
+          <Landmark kind={l.kind} position={l.position} />
+        </Suspense>
       ))}
       {layout.clientPlots.map((plot) => (
-        <ClientBuilding key={plot.cliente.idCliente} plot={plot} />
+        <Suspense key={plot.cliente.idCliente} fallback={null}>
+          <ClientBuilding plot={plot} />
+        </Suspense>
       ))}
       {layout.constructionSites.map((site) => (
         <ConstructionSite key={site.projeto.idProjeto} plot={site} />
       ))}
 
-      <Citizens count={citizenCount} />
-      <Walkers layout={layout} />
+      {/* Movimento reduzido: sem pedestres nem veículos em trânsito (os caminhões ficam estacionados). */}
+      {!reduced && <Citizens count={citizenCount} />}
+      {!reduced && <Walkers layout={layout} />}
 
       {layout.trucks.map((t) => (
         <ChamadoTruck key={t.chamado.idChamado} plot={t} entryX={layout.bounds.minX - 3} />
       ))}
-      <EventVehicles exitX={layout.bounds.maxX + 3} />
+      {!reduced && <EventVehicles exitX={layout.bounds.maxX + 3} />}
 
       {marker && <SelectionMarker position={marker.pos} size={marker.size} />}
       <BuildGhost lot={layout.nextLot} active={buildMode} />
@@ -86,6 +102,10 @@ function Scene() {
   const { health } = useGame();
   const style = WEATHER_STYLE[health.weather];
   const sky = style.sky;
+  const reduced = useReducedMotion();
+  useEffect(() => {
+    motion.reduced = reduced;
+  }, [reduced]);
 
   return (
     <>
@@ -109,7 +129,7 @@ function Scene() {
       />
 
       <CameraRig />
-      <Weather kind={health.weather} />
+      <Weather kind={health.weather} reduced={reduced} />
       {yard ? <KanbanYard /> : <City />}
     </>
   );
@@ -145,6 +165,7 @@ export function CityScene() {
           }}
         />
         <AdaptiveDpr pixelated={false} />
+        {perfEnabled() && <PerfProbe />}
         <Scene />
         {ao && (
           <EffectComposer multisampling={4}>

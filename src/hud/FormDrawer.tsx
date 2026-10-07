@@ -85,11 +85,18 @@ export function FormDrawer() {
   const m = meta(drawer);
 
   return (
-    <aside className="pointer-events-auto absolute bottom-4 right-4 top-[76px] z-40 flex w-[min(400px,calc(100vw-32px))] flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-float">
+    <aside
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="drawer-titulo"
+      className="pointer-events-auto absolute bottom-4 right-4 top-[76px] z-40 flex w-[min(400px,calc(100vw-32px))] flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-float max-md:inset-x-0 max-md:bottom-0 max-md:top-14 max-md:w-full max-md:rounded-b-none"
+    >
       <div className="flex items-start gap-3 border-b border-line px-5 py-4">
         <IconTile>{m.icon}</IconTile>
         <div className="min-w-0 flex-1">
-          <h2 className="text-[16px] font-bold text-ink">{m.title}</h2>
+          <h2 id="drawer-titulo" className="text-[16px] font-bold text-ink">
+            {m.title}
+          </h2>
           <p className="text-[12px] text-ink-2">{m.subtitle}</p>
         </div>
         <IconButton label="Fechar" onClick={closeDrawer}>

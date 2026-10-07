@@ -13,6 +13,7 @@ export function CameraToolbar() {
   const openDrawer = useUiStore((s) => s.openDrawer);
 
   return (
+    <div data-tour="toolbar" role="toolbar" aria-label="Câmera e construção" aria-orientation="vertical">
     <Glass className="flex flex-col items-center gap-0.5 p-1">
       <IconButton label="Aproximar (+)" onClick={() => zoomStep(controls, 1)}>
         <Plus className="h-4 w-4" />
@@ -45,5 +46,6 @@ export function CameraToolbar() {
         <Hammer className="h-4 w-4" />
       </IconButton>
     </Glass>
+    </div>
   );
 }

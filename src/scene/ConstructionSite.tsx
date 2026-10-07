@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { Suspense, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
 import type { Group } from 'three';
@@ -6,8 +6,11 @@ import type { ConstructionSitePlot } from '../world/layout';
 import { COLORS } from '../world/colors';
 import { label, projetoCode } from '../world/status';
 import { useUiStore } from '../store/uiStore';
+import { coneModel } from './assets';
+import { Prop } from './Prop';
 import { SceneTag } from './SceneTag';
 import { useHover } from './useHover';
+import { motion } from './motion';
 
 const PAD = 0.95;
 const SCAFFOLD = '#7d8fb8';
@@ -36,6 +39,7 @@ function ZoneOutline() {
 function Crane({ height, spinning }: { height: number; spinning: boolean }) {
   const ref = useRef<Group>(null);
   useFrame((_, delta) => {
+    if (motion.reduced) return;
     if (ref.current && spinning) ref.current.rotation.y += delta * 0.5;
   });
   return (
@@ -114,15 +118,10 @@ export function ConstructionSite({ plot }: { plot: ConstructionSitePlot }) {
         <>
           <ZoneOutline />
           {projeto.status === 'Planejamento' ? (
-            // Estacas de demarcação
-            [-0.3, 0.3].flatMap((sx) =>
-              [-0.3, 0.3].map((sz) => (
-                <mesh key={`${sx}${sz}`} position={[sx, 0.1, sz]} castShadow>
-                  <coneGeometry args={[0.05, 0.2, 8]} />
-                  <meshStandardMaterial color={COLORS.warning} />
-                </mesh>
-              ))
-            )
+            // Cones de demarcação (Kenney car kit)
+            <Suspense fallback={null}>
+              {[-0.3, 0.3].flatMap((sx) => [-0.3, 0.3].map((sz) => <Prop key={`${sx}${sz}`} url={coneModel} size={0.22} fit="height" position={[sx, 0, sz]} />))}
+            </Suspense>
           ) : (
             <>
               {/* Parte já "construída" ∝ tempo decorrido */}

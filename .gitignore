@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright
+test-results
+playwright-report
+
+# Kits originais da Kenney (FBX/OBJ/previews, ~39 MB) — só os GLB usados vão para public/models
+assets-src/

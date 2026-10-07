@@ -4,6 +4,7 @@ import { Instance, Instances } from '@react-three/drei';
 import { Object3D, type AmbientLight, type Group, type InstancedMesh } from 'three';
 import type { Weather as WeatherKind } from '../world/gamification';
 import { WEATHER_STYLE } from './weatherStyle';
+import { motion } from './motion';
 
 function seeded(i: number): number {
   const x = Math.sin(i * 12.9898) * 43758.5453;
@@ -29,6 +30,7 @@ function Clouds({ count, color }: { count: number; color: string }) {
   );
 
   useFrame((_, delta) => {
+    if (motion.reduced) return;
     refs.current.forEach((g, i) => {
       if (!g) return;
       g.position.x += clouds[i].speed * delta;
@@ -125,13 +127,14 @@ function Lightning() {
   return <ambientLight ref={ref} intensity={0} color="#e0e7ff" />;
 }
 
-export function Weather({ kind }: { kind: WeatherKind }) {
+/** Com movimento reduzido: nuvens paradas, sem chuva caindo e sem relâmpagos (flashes). */
+export function Weather({ kind, reduced }: { kind: WeatherKind; reduced: boolean }) {
   const style = WEATHER_STYLE[kind];
   return (
     <>
       {style.clouds > 0 && <Clouds key={`${style.clouds}-${style.cloudColor}`} count={style.clouds} color={style.cloudColor} />}
-      {style.rain > 0 && <Rain key={style.rain} count={style.rain} />}
-      {style.lightning && <Lightning />}
+      {style.rain > 0 && !reduced && <Rain key={style.rain} count={style.rain} />}
+      {style.lightning && !reduced && <Lightning />}
     </>
   );
 }
