@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+/* Tokens replicados de mrcode-admin-frontend/src/styles.scss — mesma identidade visual,
+   agora também consumidos como cores de materiais/HUD na cena 3D. */
+:root {
+  --brand-blue: #134ced;
+  --brand-blue-hover: #2c60f6;
+  --brand-purple: #5e4ced;
+
+  --bg-page: #0a0c13;
+  --bg-surface: #12141f;
+  --bg-surface-2: #181c2b;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  --text-primary: #f5f6fa;
+  --text-secondary: rgba(245, 246, 250, 0.64);
+  --text-muted: rgba(245, 246, 250, 0.4);
+
+  --color-success: #22c55e;
+  --color-warning: #f5a623;
+  --color-danger: #ef4444;
+  --color-info: #38bdf8;
+
+  --font-mono: 'Fira Code', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --font-sans: 'Fira Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  font-family: var(--font-sans);
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+}
