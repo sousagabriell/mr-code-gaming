@@ -1,5 +1,5 @@
 import { COLORS } from './colors';
-import type { ChamadoDTO, DespesaDTO, FaturaDTO, ObservabilidadeResumoDTO } from '../types/domain';
+import type { DespesaDTO, FaturaDTO, ObservabilidadeResumoDTO } from '../types/domain';
 
 export interface HealthState {
   color: string;
@@ -28,16 +28,4 @@ export function bancoHealth(faturas: FaturaDTO[], despesas: DespesaDTO[]): Healt
   const saldo = computeSaldo(faturas, despesas);
   if (faturas.some((f) => f.status === 'Atrasado')) return { color: COLORS.danger, pulse: true, saldo };
   return { color: saldo >= 0 ? COLORS.success : COLORS.warning, pulse: false, saldo };
-}
-
-/** Saúde agregada do "sistema" — alimenta o clima/iluminação ambiente da cena (Fase 4). */
-export function isSystemAlert(params: {
-  faturas: FaturaDTO[];
-  chamados: ChamadoDTO[];
-  observabilidade: ObservabilidadeResumoDTO | null;
-}): boolean {
-  const faturaAtrasada = params.faturas.some((f) => f.status === 'Atrasado');
-  const chamadoCritico = params.chamados.some((c) => c.prioridade === 'Alta' && (c.status === 'Aberto' || c.status === 'EmAndamento'));
-  const datacenterCritico = datacenterHealth(params.observabilidade).pulse;
-  return faturaAtrasada || chamadoCritico || datacenterCritico;
 }

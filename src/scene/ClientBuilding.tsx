@@ -1,90 +1,109 @@
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
-import { DoubleSide, type Mesh, type MeshBasicMaterial } from 'three';
+import { easing } from 'maath';
+import type { Group } from 'three';
 import type { ClientPlot } from '../world/layout';
-import { CLIENT_COLOR_BY_STATE, PRIORIDADE_COLOR } from '../world/colors';
-import { useCityStore } from '../store/cityStore';
+import { CLIENT_COLOR_BY_STATE, COLORS, PRIORIDADE_COLOR } from '../world/colors';
+import { clienteCode, clienteNome, worstPrioridade } from '../world/status';
+import { useUiStore } from '../store/uiStore';
+import { MapPin } from './MapPin';
+import { SceneTag } from './SceneTag';
+import { useHover } from './useHover';
 
-function worstPrioridade(chamados: ClientPlot['chamadosAbertos']): 'Alta' | 'Media' | 'Baixa' {
-  if (chamados.some((c) => c.prioridade === 'Alta')) return 'Alta';
-  if (chamados.some((c) => c.prioridade === 'Media')) return 'Media';
-  return 'Baixa';
+const WIDTH = 1.4;
+const DEPTH = 1.15;
+
+function Windows({ height }: { height: number }) {
+  const floors = Math.max(1, Math.floor((height - 0.35) / 0.32));
+  return (
+    <>
+      {Array.from({ length: floors }).map((_, f) => (
+        <mesh key={f} position={[0, 0.45 + f * 0.32, DEPTH / 2 + 0.006]}>
+          <planeGeometry args={[WIDTH * 0.78, 0.14]} />
+          <meshStandardMaterial color={COLORS.glass} roughness={0.2} metalness={0.1} />
+        </mesh>
+      ))}
+    </>
+  );
 }
 
 export function ClientBuilding({ plot }: { plot: ClientPlot }) {
-  const [hovered, setHovered] = useState(false);
-  const beaconRef = useRef<Mesh>(null);
-  const ringRef = useRef<Mesh>(null);
-  const select = useCityStore((s) => s.select);
+  const groupRef = useRef<Group>(null);
+  const select = useUiStore((s) => s.select);
+  const isSelected = useUiStore((s) => s.selected?.kind === 'cliente' && s.selected.id === plot.cliente.idCliente);
+  const { hovered, bind } = useHover();
 
-  const color = CLIENT_COLOR_BY_STATE[plot.colorState];
+  const roof = CLIENT_COLOR_BY_STATE[plot.colorState];
+  const inactive = plot.colorState === 'encerrado';
   const [x, , z] = plot.position;
-  const y = plot.height / 2;
-  const worst = plot.chamadosAbertos.length > 0 ? worstPrioridade(plot.chamadosAbertos) : null;
-  const beaconColor = worst ? PRIORIDADE_COLOR[worst] : null;
+  const h = plot.height;
 
-  useFrame(({ clock }) => {
-    if (beaconRef.current) {
-      beaconRef.current.scale.setScalar(0.75 + Math.sin(clock.elapsedTime * 4) * 0.25);
-    }
-    if (ringRef.current && worst === 'Alta') {
-      const t = (clock.elapsedTime % 1.4) / 1.4;
-      ringRef.current.scale.setScalar(0.4 + t * 2.2);
-      (ringRef.current.material as MeshBasicMaterial).opacity = 1 - t;
-    }
+  const worst = worstPrioridade(plot.chamadosAbertos);
+  const pinColor = plot.faturasAtrasadas.length > 0 || worst === 'Alta' ? PRIORIDADE_COLOR.Alta : worst ? PRIORIDADE_COLOR[worst] : null;
+
+  // Sobe do chão ao aparecer (primeiro carregamento ou sede recém-construída). A escala inicial é
+  // aplicada só uma vez — passá-la como prop faria a sede "desabar" a cada re-render.
+  useLayoutEffect(() => {
+    groupRef.current?.scale.set(1, 0.001, 1);
+  }, []);
+
+  useFrame((_, delta) => {
+    if (groupRef.current) easing.damp(groupRef.current.scale, 'y', 1, 0.35, delta);
   });
+
+  const highlight = hovered || isSelected;
 
   return (
     <group position={[x, 0, z]}>
-      <mesh
-        position={[0, y, 0]}
-        castShadow
+      <group
+        ref={groupRef}
         onClick={(e) => {
           e.stopPropagation();
-          select({ kind: 'cliente', id: plot.cliente.idCliente }, [x, y, z]);
+          select({ kind: 'cliente', id: plot.cliente.idCliente });
         }}
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          setHovered(true);
-          document.body.style.cursor = 'pointer';
-        }}
-        onPointerOut={() => {
-          setHovered(false);
-          document.body.style.cursor = 'auto';
-        }}
+        {...bind}
       >
-        <boxGeometry args={[1, plot.height, 1]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={hovered ? 0.9 : plot.colorState === 'ativo' ? 0.55 : 0.25}
-          opacity={plot.colorState === 'neutro' ? 0.6 : 1}
-          transparent={plot.colorState === 'neutro'}
+        {/* Corpo */}
+        <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
+          <boxGeometry args={[WIDTH, h, DEPTH]} />
+          <meshStandardMaterial
+            color={inactive ? COLORS.wallShade : COLORS.wall}
+            roughness={0.85}
+            emissive={COLORS.brandBlue}
+            emissiveIntensity={highlight ? 0.18 : 0}
+          />
+        </mesh>
+        {/* Telhado colorido pelo estado do contrato */}
+        <mesh position={[0, h + 0.06, 0]} castShadow>
+          <boxGeometry args={[WIDTH + 0.08, 0.12, DEPTH + 0.08]} />
+          <meshStandardMaterial color={roof} roughness={0.6} />
+        </mesh>
+        {/* Faixa lateral da marca */}
+        <mesh position={[WIDTH / 2 + 0.006, h * 0.55, 0]} rotation={[0, Math.PI / 2, 0]}>
+          <planeGeometry args={[DEPTH * 0.7, 0.16]} />
+          <meshStandardMaterial color={roof} />
+        </mesh>
+        {/* Porta */}
+        <mesh position={[0, 0.18, DEPTH / 2 + 0.01]}>
+          <boxGeometry args={[0.34, 0.36, 0.02]} />
+          <meshStandardMaterial color="#1e3a8a" />
+        </mesh>
+        {!inactive && <Windows height={h} />}
+      </group>
+
+      {pinColor && <MapPin position={[0, h + 0.25, 0]} color={pinColor} />}
+
+      <SceneTag
+          visible={highlight || plot.chamadosAbertos.length > 0}
+          position={[0, h + (pinColor ? 1.05 : 0.5), 0]}
+          code={clienteCode(plot.cliente.idCliente)}
+          text={
+            highlight
+              ? clienteNome(plot.cliente)
+              : `${plot.chamadosAbertos.length} chamado${plot.chamadosAbertos.length > 1 ? 's' : ''}`
+          }
+          accent={inactive ? '#94a3b8' : COLORS.brandBlue}
         />
-      </mesh>
-
-      {beaconColor && (
-        <mesh ref={beaconRef} position={[0, plot.height + 0.5, 0]}>
-          <octahedronGeometry args={[0.18]} />
-          <meshStandardMaterial color={beaconColor} emissive={beaconColor} emissiveIntensity={1.4} />
-        </mesh>
-      )}
-
-      {worst === 'Alta' && beaconColor && (
-        <mesh ref={ringRef} position={[0, plot.height + 0.5, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.22, 0.3, 32]} />
-          <meshBasicMaterial color={beaconColor} transparent opacity={1} side={DoubleSide} />
-        </mesh>
-      )}
-
-      {hovered && (
-        <Html position={[0, plot.height + 1, 0]} center distanceFactor={14}>
-          <div className="pointer-events-none whitespace-nowrap rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 px-2 py-1 font-[var(--font-mono)] text-[11px] text-[var(--text-primary)]">
-            {plot.cliente.nomeFantasia ?? plot.cliente.razaoSocial}
-          </div>
-        </Html>
-      )}
     </group>
   );
 }

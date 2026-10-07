@@ -14,7 +14,9 @@ export function useCountUp(target: number, durationMs = 900): number {
     const start = performance.now();
 
     function tick(now: number) {
-      const t = Math.min(1, (now - start) / durationMs);
+      // O timestamp do rAF pode ser anterior ao `start` (frame já começado): sem o max(0) o
+      // progresso fica negativo e o número "passa" para o lado errado (ex.: -R$ 4,4 mil).
+      const t = Math.min(1, Math.max(0, (now - start) / durationMs));
       const eased = 1 - (1 - t) * (1 - t);
       setValue(from + delta * eased);
       if (t < 1) raf = requestAnimationFrame(tick);
