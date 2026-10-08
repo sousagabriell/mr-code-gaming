@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
+import { BankBar } from './hud/bank/BankBar';
+import { BankPanel } from './hud/bank/BankPanel';
 import { CameraToolbar } from './hud/CameraToolbar';
-import { EntityTable } from './hud/EntityTable';
 import { FormDrawer } from './hud/FormDrawer';
 import { Inspector } from './hud/inspector/Inspector';
 import { KpiCards } from './hud/KpiCards';
@@ -17,8 +18,9 @@ import { GamePanel } from './hud/game/GamePanel';
 import { PerfOverlay } from './hud/PerfOverlay';
 import { ListView } from './hud/list/ListView';
 import { MobileDock } from './hud/MobileDock';
+import { Phone } from './hud/phone/Phone';
 import { Tour } from './hud/Tour';
-import { useIsMobile } from './hooks/useIsMobile';
+import { useIsDesktop, useIsMobile } from './hooks/useIsMobile';
 import { usePrefsStore } from './store/prefsStore';
 import { LevelUpOverlay } from './hud/game/LevelUpOverlay';
 import { useGame } from './hooks/useGame';
@@ -52,9 +54,11 @@ export default function Game() {
   const game = useGame();
   const alert = game.health.weather === 'tempestade';
   const yard = useUiStore((s) => s.yard);
+  const banco = useUiStore((s) => s.banco);
   const selected = useUiStore((s) => s.selected);
   const lista = usePrefsStore((s) => s.viewMode) === 'lista';
   const isMobile = useIsMobile();
+  const desktop = useIsDesktop();
   useKeyboardShortcuts();
   useGameProgress(game);
 
@@ -70,8 +74,11 @@ export default function Game() {
           <CityScene />
         </Suspense>
       )}
-      {/* key troca a cada entrada/saída do pátio e reinicia a animação do véu */}
-      <div key={yard ?? 'city'} className="animate-scene-fade pointer-events-none absolute inset-0 z-10 bg-page" />
+      {/* key troca a cada entrada/saída de cenário (pátio, agência) e reinicia a animação do véu */}
+      <div
+        key={banco ? 'banco' : (yard ?? 'city')}
+        className="animate-scene-fade pointer-events-none absolute inset-0 z-10 bg-page"
+      />
 
       {alert && (
         <div className="pointer-events-none absolute inset-0 z-10 animate-pulse shadow-[inset_0_0_60px_rgb(239_68_68/0.18)]" />
@@ -91,8 +98,12 @@ export default function Game() {
                 <CameraToolbar />
               </div>
             )}
-            {/* Celular: o inspector vira uma folha que sobe da base; sem seleção, a barra de ações. */}
-            {selected ? (
+            {/* Celular: o extrato e o inspector viram folhas que sobem da base. */}
+            {banco ? (
+              <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-30">
+                <BankPanel />
+              </div>
+            ) : selected ? (
               <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-30">
                 <Inspector sheet />
               </div>
@@ -101,26 +112,40 @@ export default function Game() {
             )}
           </>
         ) : (
-          <div className={`absolute right-4 top-[76px] bottom-4 flex items-start gap-2 ${lista ? '' : 'lg:bottom-[300px]'}`}>
-            {!lista && (
+          // Sem lista, a base da coluna para logo acima do celular recolhido (124px + as folgas).
+          <div
+            className={`absolute right-4 top-[76px] bottom-4 flex items-start gap-2 ${lista || banco ? '' : 'lg:bottom-[156px]'}`}
+          >
+            {/* A partir de 1024px os controles de câmera moram na barra superior. */}
+            {!lista && !desktop && (
               <div className="pointer-events-auto">
                 <CameraToolbar />
               </div>
             )}
-            <div className="pointer-events-auto flex max-h-full">
-              <Inspector />
+            {/* Na agência o extrato ocupa a coluna inteira — não há entidade selecionada lá dentro. */}
+            <div className={`pointer-events-auto flex max-h-full ${banco ? 'w-[min(560px,calc(100vw-32px))]' : ''}`}>
+              {banco ? <BankPanel /> : <Inspector />}
             </div>
           </div>
         )}
 
         {!lista && (
           <>
-            <div className="pointer-events-auto absolute bottom-4 left-4 hidden w-[min(760px,calc(100vw-424px))] lg:block">
-              {yard ? <YardPanel /> : <TimelineTray />}
+            {/* A folga da direita acompanha quem está lá: o extrato (560) é mais largo que o celular. */}
+            <div
+              className={`pointer-events-auto absolute bottom-4 left-4 hidden lg:block ${
+                banco ? 'w-[min(760px,calc(100vw-608px))]' : 'w-[min(760px,calc(100vw-424px))]'
+              }`}
+            >
+              {banco ? <BankBar /> : yard ? <YardPanel /> : <TimelineTray />}
             </div>
-            <div className="pointer-events-auto absolute bottom-4 right-4 hidden w-[376px] lg:block">
-              {yard ? <YardTable /> : <EntityTable />}
-            </div>
+            {yard ? (
+              <div className="pointer-events-auto absolute bottom-4 right-4 hidden w-[376px] lg:block">
+                <YardTable />
+              </div>
+            ) : (
+              !banco && <Phone />
+            )}
           </>
         )}
       </div>

@@ -24,10 +24,13 @@ export const qk = {
   projetos: ['projetos'],
   projeto: (id: number) => ['projetos', id],
   chamados: ['chamados'],
-  // Sob o prefixo 'chamados': invalidar a lista também atualiza o detalhe.
+  // Sob o prefixo 'chamados': invalidar a lista também atualiza o detalhe e as conversas abertas.
   chamado: (id: number) => ['chamados', id],
+  mensagens: (idChamado: number) => ['chamados', idChamado, 'mensagens'],
   faturas: ['faturas'],
   despesas: ['despesas'],
+  // O mês entra na chave: sem ele, navegar no extrato mostraria o resumo do mês anterior em cache.
+  financeiro: (mes: string) => ['financeiro', mes],
   wiki: ['wiki'],
   equipe: ['equipe'],
   kanban: (idProjeto: number) => ['kanban', idProjeto],

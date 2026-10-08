@@ -1,18 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useIsFetching } from '@tanstack/react-query';
-import { Box, ChevronDown, Footprints, List, LogOut, Search, Volume2, VolumeX, Wind } from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
+import { Box, ChevronDown, Footprints, List, LogOut, Search, Signpost, Volume2, VolumeX, Wind } from 'lucide-react';
+import { useIsDesktop } from '../hooks/useIsMobile';
 import { useWorld } from '../hooks/useWorld';
-import { formatClock } from '../lib/format';
 import { useAuthStore } from '../store/authStore';
 import { useUiStore } from '../store/uiStore';
 import { label } from '../world/status';
+import { CameraToolbar } from './CameraToolbar';
 import { DistrictSelector } from './DistrictSelector';
 import { HealthChip, LevelBadge } from './game/GameChips';
 import { useGameStore } from '../store/gameStore';
 import { usePrefsStore, webglAvailable } from '../store/prefsStore';
 import { useTourStore } from '../store/tourStore';
 import { NotificationBell } from './NotificationBell';
-import { cx } from './tones';
 import { useClickOutside } from './useClickOutside';
 
 function Logo() {
@@ -45,27 +44,21 @@ function SearchTrigger() {
   );
 }
 
-function LiveIndicator() {
-  const fetching = useIsFetching() > 0;
+/**
+ * O relógio e o pulso de sincronização moram no celular (barra de status). Aqui fica só o alerta de
+ * falha — que precisa existir na barra porque o celular some abaixo de 1024px, no modo lista e no pátio.
+ */
+function SyncAlert() {
   const { isError } = useWorld();
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 15_000);
-    return () => clearInterval(id);
-  }, []);
-
+  if (!isError) return null;
   return (
     <span
-      className={cx(
-        'flex h-9 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold',
-        isError ? 'bg-warn-soft text-warn' : 'bg-ok-soft text-ok'
-      )}
-      title={isError ? 'Falha ao sincronizar — tentando de novo' : 'Dados sincronizados com o MrCodeAdmin a cada 30s'}
+      role="status"
+      className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-warn-soft px-3 text-[12px] font-semibold text-warn"
+      title="Falha ao sincronizar com o MrCodeAdmin — tentando de novo"
     >
-      <span className={cx('h-2 w-2 rounded-full', isError ? 'bg-warn' : 'bg-ok', fetching && 'animate-pulse')} />
-      {isError ? 'Reconectando' : 'Live'}
-      <span className="font-medium text-ink tabular">{formatClock(now)}</span>
+      <span className="h-2 w-2 animate-pulse rounded-full bg-warn" />
+      Reconectando
     </span>
   );
 }
@@ -76,6 +69,8 @@ function UserMenu() {
   const toggleSound = useGameStore((s) => s.toggleSound);
   const reduceMotion = usePrefsStore((s) => s.reduceMotion);
   const toggleReduceMotion = usePrefsStore((s) => s.toggleReduceMotion);
+  const showSigns = usePrefsStore((s) => s.showSigns);
+  const toggleShowSigns = usePrefsStore((s) => s.toggleShowSigns);
   const startTour = useTourStore((s) => s.start);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -115,6 +110,15 @@ function UserMenu() {
           >
             {sound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             Sons do jogo: {sound ? 'ligados' : 'desligados'}
+          </button>
+          <button
+            onClick={toggleShowSigns}
+            role="switch"
+            aria-checked={showSigns}
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium text-ink-2 hover:bg-surface-2"
+          >
+            <Signpost className="h-4 w-4" />
+            Placas com nomes: {showSigns ? 'ligadas' : 'desligadas'}
           </button>
           <button
             onClick={toggleReduceMotion}
@@ -168,21 +172,30 @@ function ViewToggle() {
 }
 
 export function TopBar() {
+  const desktop = useIsDesktop();
+  const lista = usePrefsStore((s) => s.viewMode) === 'lista';
+  // A partir de 1024px os controles de câmera moram aqui; abaixo disso o Game mantém a barrinha
+  // flutuante na lateral (a barra não tem espaço para os seis botões). No modo lista não há câmera.
+  const naBarra = desktop && !lista;
+
   return (
-    <header className="pointer-events-auto absolute inset-x-0 top-0 z-30 flex items-center gap-2 px-3 pt-3 sm:gap-3 sm:px-4">
+    <header className="pointer-events-auto absolute inset-x-0 top-0 z-30 flex items-center gap-2 px-3 pt-3 sm:px-4 2xl:gap-3">
       <Logo />
       <LevelBadge />
-      <div className="flex flex-1 justify-center">
+      {/* min-w-0: sem isso o item não encolhe abaixo do conteúdo e a barra transborda em telas
+          estreitas. O piso de 200px mantém o campo legível depois de absorver o aperto. */}
+      <div className="flex min-w-0 flex-1 justify-center sm:min-w-[200px]">
         <SearchTrigger />
       </div>
-      <div className="hidden md:block">
+      {/* Só a partir de xl: entre lg e xl o espaço vai para os controles de câmera. A navegação por
+          distrito continua na busca (/) e nos próprios prédios. */}
+      <div className="hidden xl:block">
         <DistrictSelector />
       </div>
       <ViewToggle />
+      {naBarra && <CameraToolbar horizontal />}
       <HealthChip />
-      <div className="hidden sm:block">
-        <LiveIndicator />
-      </div>
+      <SyncAlert />
       <NotificationBell />
       <UserMenu />
     </header>

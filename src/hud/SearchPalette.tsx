@@ -4,6 +4,7 @@ import { useWorld } from '../hooks/useWorld';
 import { formatBRL } from '../lib/format';
 import { useUiStore, type EntityRef } from '../store/uiStore';
 import { clienteCode, clienteNome, label, projetoCode } from '../world/status';
+import { norm } from '../world/text';
 import { cx } from './tones';
 import { StatusChip } from './ui';
 
@@ -15,14 +16,6 @@ interface Result {
   subtitle: string;
   status?: string;
   target: EntityRef;
-}
-
-/** Remove acentos e caixa para a busca casar "clinica" com "Clínica". */
-function norm(s: string | null | undefined): string {
-  return (s ?? '')
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
 }
 
 const ICON_CLASS = 'h-4 w-4';

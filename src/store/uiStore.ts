@@ -23,7 +23,11 @@ export type DrawerState =
   | { form: 'editar-atividade'; idProjeto: number; idAtividade: number }
   | { form: 'nova-coluna'; idProjeto: number }
   | { form: 'editar-coluna'; idProjeto: number; idColuna: number }
-  | { form: 'converter-chamado'; idChamado: number };
+  | { form: 'converter-chamado'; idChamado: number }
+  | { form: 'nova-fatura' }
+  | { form: 'editar-fatura'; idFatura: number }
+  | { form: 'nova-despesa' }
+  | { form: 'editar-despesa'; idDespesa: number };
 
 interface UiState {
   selected: EntityRef | null;
@@ -55,6 +59,15 @@ interface UiState {
   /** focusProject=false volta sem selecionar o canteiro (ex.: ir para a visão geral). */
   exitYard: (focusProject?: boolean) => void;
 
+  /**
+   * Agência do Banco Central aberta (o extrato). É o terceiro cenário, ao lado da cidade e do
+   * pátio — e **excludente** com o `yard`: entrar num fecha o outro.
+   */
+  banco: boolean;
+  enterBanco: () => void;
+  /** selectBanco=false volta sem selecionar o landmark (ex.: ir para a visão geral). */
+  exitBanco: (selectBanco?: boolean) => void;
+
   /** Uma caixa do pátio está segurando o ponteiro (do pointerdown ao pointerup) — câmera travada. */
   dragging: boolean;
   setDragging: (on: boolean) => void;
@@ -85,7 +98,7 @@ export function entityKey(entity: EntityRef): string {
   return 'id' in entity ? `${entity.kind}:${entity.id}` : entity.kind;
 }
 
-function writeUrl(param: 'sel' | 'yard', value: string | null) {
+function writeUrl(param: 'sel' | 'yard' | 'banco', value: string | null) {
   const url = new URL(window.location.href);
   if (value) url.searchParams.set(param, value);
   else url.searchParams.delete(param);
@@ -94,7 +107,7 @@ function writeUrl(param: 'sel' | 'yard', value: string | null) {
 
 const writeSelToUrl = (entity: EntityRef | null) => writeUrl('sel', entity ? entityKey(entity) : null);
 
-function readUrl(param: 'sel' | 'yard'): string | null {
+function readUrl(param: 'sel' | 'yard' | 'banco'): string | null {
   if (typeof window === 'undefined') return null;
   return new URL(window.location.href).searchParams.get(param);
 }
@@ -102,6 +115,11 @@ function readUrl(param: 'sel' | 'yard'): string | null {
 function readYardFromUrl(): number | null {
   const id = Number(readUrl('yard'));
   return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+/** `?banco=1` abre direto na agência — mas o pátio tem precedência se a URL trouxer os dois. */
+function readBancoFromUrl(): boolean {
+  return readUrl('banco') === '1' && readYardFromUrl() === null;
 }
 
 function readSelFromUrl(): EntityRef | null {
@@ -115,9 +133,11 @@ export const useUiStore = create<UiState>((set) => ({
   selected: readSelFromUrl(),
   focusNonce: 0,
   select: (entity) => {
-    // Selecionar algo da cidade (busca, notificação, distrito) estando no pátio = sair do pátio.
-    const leaveYard = useUiStore.getState().yard !== null && entity.kind !== 'atividade';
+    // Selecionar algo da cidade (busca, notificação, distrito) estando num cenário interno = voltar.
+    const { yard, banco } = useUiStore.getState();
+    const leaveYard = yard !== null && entity.kind !== 'atividade';
     if (leaveYard) writeUrl('yard', null);
+    if (banco) writeUrl('banco', null);
     writeSelToUrl(entity);
     set((s) => ({
       selected: entity,
@@ -125,7 +145,9 @@ export const useUiStore = create<UiState>((set) => ({
       buildMode: false,
       // Colaborador só faz sentido acompanhando o pedestre; o resto começa parado.
       follow: entity.kind === 'colaborador',
-      ...(leaveYard ? { yard: null, drawer: null } : {}),
+      ...(leaveYard || banco ? { drawer: null } : {}),
+      ...(leaveYard ? { yard: null } : {}),
+      ...(banco ? { banco: false } : {}),
     }));
   },
   clearSelection: () => {
@@ -152,8 +174,16 @@ export const useUiStore = create<UiState>((set) => ({
   yard: readYardFromUrl(),
   enterYard: (idProjeto, then) => {
     writeUrl('yard', String(idProjeto));
+    writeUrl('banco', null);
     writeSelToUrl(then ?? null);
-    set((s) => ({ yard: idProjeto, selected: then ?? null, focusNonce: s.focusNonce + 1, buildMode: false, drawer: null }));
+    set((s) => ({
+      yard: idProjeto,
+      banco: false,
+      selected: then ?? null,
+      focusNonce: s.focusNonce + 1,
+      buildMode: false,
+      drawer: null,
+    }));
   },
   exitYard: (focusProject = true) => {
     const { yard } = useUiStore.getState();
@@ -162,6 +192,21 @@ export const useUiStore = create<UiState>((set) => ({
     const back: EntityRef | null = yard && focusProject ? { kind: 'projeto', id: yard } : null;
     writeSelToUrl(back);
     set((s) => ({ yard: null, selected: back, focusNonce: s.focusNonce + 1, drawer: null }));
+  },
+
+  banco: readBancoFromUrl(),
+  enterBanco: () => {
+    writeUrl('banco', '1');
+    writeUrl('yard', null);
+    // Dentro da agência não há entidade selecionada: o painel do extrato ocupa a coluna da direita.
+    writeSelToUrl(null);
+    set((s) => ({ banco: true, yard: null, selected: null, focusNonce: s.focusNonce + 1, buildMode: false, drawer: null }));
+  },
+  exitBanco: (selectBanco = true) => {
+    writeUrl('banco', null);
+    const back: EntityRef | null = selectBanco ? { kind: 'banco' } : null;
+    writeSelToUrl(back);
+    set((s) => ({ banco: false, selected: back, focusNonce: s.focusNonce + 1, drawer: null }));
   },
 
   dragging: false,

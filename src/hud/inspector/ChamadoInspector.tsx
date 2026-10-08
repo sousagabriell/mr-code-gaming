@@ -1,35 +1,14 @@
-import { ArrowDownToLine, CheckCircle2, Hand, Lock, Play, RotateCcw, Ticket, Warehouse } from 'lucide-react';
+import { ArrowDownToLine, Hand, Ticket, Warehouse } from 'lucide-react';
 import { useAlterarStatusChamado, useAtribuirResponsavel } from '../../api/mutations';
 import { useChamadoDetalheQuery } from '../../api/queries';
 import { useWorld } from '../../hooks/useWorld';
 import { formatDateTimeShort, formatRelative, stripHtml } from '../../lib/format';
 import { useAuthStore } from '../../store/authStore';
 import { useUiStore } from '../../store/uiStore';
-import type { ChamadoStatus } from '../../types/domain';
 import { clienteCode } from '../../world/status';
+import { TRANSITIONS } from '../chamadoActions';
 import { Button, KeyValue, Section, StatusChip } from '../ui';
 import { InspectorShell, StatusLine } from './Shell';
-
-interface Transition {
-  to: ChamadoStatus;
-  label: string;
-  icon: typeof Play;
-  primary?: boolean;
-}
-
-/** Próximos passos possíveis a partir do status atual — viram os botões de ação. */
-const TRANSITIONS: Record<ChamadoStatus, Transition[]> = {
-  Aberto: [
-    { to: 'EmAndamento', label: 'Iniciar atendimento', icon: Play, primary: true },
-    { to: 'Resolvido', label: 'Resolver', icon: CheckCircle2 },
-  ],
-  EmAndamento: [{ to: 'Resolvido', label: 'Marcar como resolvido', icon: CheckCircle2, primary: true }],
-  Resolvido: [
-    { to: 'Fechado', label: 'Fechar', icon: Lock, primary: true },
-    { to: 'Aberto', label: 'Reabrir', icon: RotateCcw },
-  ],
-  Fechado: [{ to: 'Aberto', label: 'Reabrir', icon: RotateCcw }],
-};
 
 export function ChamadoInspector({ id }: { id: number }) {
   const { chamados } = useWorld();

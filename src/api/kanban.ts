@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { textToHtml } from '../lib/format';
 import { ApiError } from '../lib/http';
 import { toast } from '../store/toastStore';
 import type { CadastroAtividadeDTO, KanbanColunaDTO } from '../types/domain';
 import { findAtividade, moveAtividade } from '../world/kanban';
+import { formatarPrazo, mensagemDePrazo } from '../world/phone';
 import { api } from './endpoints';
 import { qk } from './queryClient';
 
@@ -133,13 +135,69 @@ export function useComentar() {
   });
 }
 
-/** Chamado → caixa no pátio do projeto escolhido. */
+export interface ConverterChamadoVars {
+  idChamado: number;
+  idProjeto: number;
+  idColuna: number | null;
+  /** `yyyy-mm-dd`; obrigatório — é ele que vira o aviso no chat do cliente. */
+  dataPrazo: string;
+  assunto: string;
+}
+
+/**
+ * Chamado → caixa no pátio, com prazo e aviso ao cliente. São três chamadas porque
+ * `POST /Chamado/{id}/converter-atividade` não aceita prazo:
+ *   1. converte (a caixa passa a existir);
+ *   2. `PUT /Kanban/atividades/{id}` grava o prazo — o PUT substitui o registro inteiro, então os
+ *      outros campos voltam a partir da atividade que o passo 1 devolveu;
+ *   3. a mensagem automática entra na thread do chamado.
+ *
+ * Não é atômico. Depois do passo 1 nada pode virar um "falhou" genérico: o usuário repetiria a
+ * conversão e duplicaria a caixa. Por isso 2 e 3 reportam exatamente o que não foi salvo.
+ */
 export function useConverterChamado() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (v: { idChamado: number; idProjeto: number; idColuna: number | null }) =>
-      api.chamados.converterEmAtividade(v.idChamado, v.idProjeto, v.idColuna),
-    onSuccess: () => toast.ok('Chamado descarregado no pátio', 'Virou uma atividade do projeto'),
+    mutationFn: async (v: ConverterChamadoVars) => {
+      const atividade = await api.chamados.converterEmAtividade(v.idChamado, v.idProjeto, v.idColuna);
+      if (!atividade) return { atividade, prazoOk: false, avisoOk: false };
+
+      let prazoOk = false;
+      try {
+        await api.kanban.atualizarAtividade(atividade.idAtividade, {
+          titulo: atividade.titulo,
+          descricao: atividade.descricao,
+          tipo: atividade.tipo,
+          prioridade: atividade.prioridade,
+          idUsuarioAdminResponsavel: atividade.idUsuarioAdminResponsavel,
+          dataPrazo: `${v.dataPrazo}T00:00:00`,
+        });
+        prazoOk = true;
+      } catch {
+        // Relatado no onSuccess: a caixa já existe, repetir a conversão duplicaria.
+      }
+
+      let avisoOk = false;
+      try {
+        await api.chamados.enviarMensagem(v.idChamado, textToHtml(mensagemDePrazo(v.assunto, v.dataPrazo)));
+        avisoOk = true;
+      } catch {
+        // idem
+      }
+
+      return { atividade, prazoOk, avisoOk };
+    },
+    onSuccess: ({ prazoOk, avisoOk }, v) => {
+      if (!prazoOk) {
+        toast.bad('Caixa criada, mas sem prazo', 'Abra a caixa no pátio e informe o prazo.');
+        return;
+      }
+      if (!avisoOk) {
+        toast.bad('Prazo salvo, cliente não avisado', 'Mande a mensagem pelo chat do celular.');
+        return;
+      }
+      toast.ok('Chamado descarregado no pátio', `Prazo ${formatarPrazo(v.dataPrazo)} avisado ao cliente`);
+    },
     onError: (error) => {
       if (error instanceof ApiError && error.fieldErrors.length > 0) return;
       toast.bad('Não foi possível converter', errorMessage(error));

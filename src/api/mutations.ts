@@ -1,9 +1,12 @@
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { ApiError } from '../lib/http';
+import { textToHtml } from '../lib/format';
 import { toast } from '../store/toastStore';
 import type {
   CadastroChamadoInternoDTO,
   CadastroClienteDTO,
+  CadastroDespesaDTO,
+  CadastroFaturaDTO,
   CadastroProjetoDTO,
   ChamadoDTO,
   ChamadoStatus,
@@ -138,13 +141,113 @@ export const useCriarChamadoInterno = () =>
     success: (c) => ({ title: 'Chamado aberto', detail: c?.protocolo }),
   });
 
+/**
+ * Resposta no chat do cliente. O texto digitado vira HTML porque o MrCodeAdmin renderiza o
+ * `conteudoHtml` da mensagem — mandar texto cru perderia as quebras de linha.
+ */
+export function useEnviarMensagem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ idChamado, texto }: { idChamado: number; texto: string }) =>
+      api.chamados.enviarMensagem(idChamado, textToHtml(texto)),
+    onError: (error) => toast.bad('Mensagem não enviada', errorMessage(error)),
+    onSettled: (_d, _e, { idChamado }) => queryClient.invalidateQueries({ queryKey: qk.mensagens(idChamado) }),
+  });
+}
+
 // ─── Financeiro ─────────────────────────────────────────────────────────────
+
+/**
+ * Mexer no financeiro muda o saldo da cidade: além do recurso, invalida o resumo mensal do extrato
+ * (`['financeiro', …]`, todos os meses — a conta de um mês pode entrar em outro ao estornar).
+ */
+const FINANCEIRO = [qk.faturas, qk.despesas, ['financeiro']];
 
 export const usePagarFatura = () =>
   useGameMutation({
-    mutationFn: ({ id }: { id: number }) => api.faturas.pagar(id),
-    invalidate: [qk.faturas],
+    mutationFn: ({ id, formaPagamento }: { id: number; formaPagamento?: string }) => api.faturas.pagar(id, formaPagamento),
+    invalidate: FINANCEIRO,
     success: () => ({ title: 'Pagamento recebido', detail: 'Carro-forte a caminho do Banco Central' }),
+  });
+
+export const useEstornarFatura = () =>
+  useGameMutation({
+    mutationFn: ({ id }: { id: number }) => api.faturas.estornar(id),
+    invalidate: FINANCEIRO,
+    success: (f) => ({ title: 'Pagamento estornado', detail: f?.numeroFatura }),
+  });
+
+export const useCancelarFatura = () =>
+  useGameMutation({
+    mutationFn: ({ id }: { id: number }) => api.faturas.cancelar(id),
+    invalidate: FINANCEIRO,
+    success: (f) => ({ title: 'Fatura cancelada', detail: f?.numeroFatura }),
+  });
+
+export const useCriarFatura = () =>
+  useGameMutation({
+    mutationFn: (dto: CadastroFaturaDTO) => api.faturas.criar(dto),
+    invalidate: FINANCEIRO,
+    success: (f) => ({ title: 'Fatura emitida', detail: f?.numeroFatura }),
+  });
+
+export const useAtualizarFatura = () =>
+  useGameMutation({
+    mutationFn: ({ id, dto }: { id: number; dto: CadastroFaturaDTO }) => api.faturas.atualizar(id, dto),
+    invalidate: FINANCEIRO,
+    success: () => ({ title: 'Fatura atualizada' }),
+  });
+
+export const useCriarDespesa = () =>
+  useGameMutation({
+    mutationFn: (dto: CadastroDespesaDTO) => api.despesas.criar(dto),
+    invalidate: FINANCEIRO,
+    success: (d) => ({ title: 'Despesa lançada', detail: d?.descricao }),
+  });
+
+export const useAtualizarDespesa = () =>
+  useGameMutation({
+    mutationFn: ({ id, dto }: { id: number; dto: CadastroDespesaDTO }) => api.despesas.atualizar(id, dto),
+    invalidate: FINANCEIRO,
+    success: () => ({ title: 'Despesa atualizada' }),
+  });
+
+export const usePagarDespesa = () =>
+  useGameMutation({
+    mutationFn: ({ id }: { id: number }) => api.despesas.pagar(id),
+    invalidate: FINANCEIRO,
+    success: (d) => ({ title: 'Despesa paga', detail: d?.descricao }),
+  });
+
+export const useEstornarDespesa = () =>
+  useGameMutation({
+    mutationFn: ({ id }: { id: number }) => api.despesas.estornar(id),
+    invalidate: FINANCEIRO,
+    success: (d) => ({ title: 'Pagamento estornado', detail: d?.descricao }),
+  });
+
+/**
+ * O endpoint devolve a lista do que criou e a contagem no `message` — mas o `http.ts` entrega só o
+ * `data` ao chamador. O aviso é montado do tamanho do array, senão "nada gerado" sairia sem explicação.
+ */
+function recorrentesToast(n: number, substantivo: 'fatura' | 'despesa') {
+  if (n === 0) return { title: 'Nada a gerar', detail: 'Os lançamentos recorrentes deste mês já existem.' };
+  const plural = n === 1 ? '' : 's';
+  return { title: `${n} ${substantivo}${plural} gerada${plural}`, detail: 'A partir dos lançamentos recorrentes.' };
+}
+
+export const useGerarFaturasRecorrentes = () =>
+  useGameMutation({
+    mutationFn: () => api.faturas.gerarRecorrentes(),
+    invalidate: FINANCEIRO,
+    success: (criadas) => recorrentesToast(criadas?.length ?? 0, 'fatura'),
+  });
+
+export const useGerarDespesasRecorrentes = () =>
+  useGameMutation({
+    mutationFn: () => api.despesas.gerarRecorrentes(),
+    invalidate: FINANCEIRO,
+    success: (criadas) => recorrentesToast(criadas?.length ?? 0, 'despesa'),
   });
 
 // ─── Notificações ───────────────────────────────────────────────────────────

@@ -102,6 +102,17 @@ export interface ChamadoDTO {
   idAtividadeVinculada: number | null;
 }
 
+/** Conversa com o cliente: ele escreve pelo portal de origem, a equipe responde pelo jogo. */
+export interface ChamadoMensagemDTO {
+  idMensagem: number;
+  idChamado: number;
+  idUsuarioAdminAutor: number | null;
+  autorNome: string;
+  autorEhAdmin: boolean;
+  conteudoHtml: string;
+  dataCriacao: string;
+}
+
 export type FaturaStatus = 'Pendente' | 'Pago' | 'Atrasado' | 'Cancelado';
 
 export interface FaturaDTO {
@@ -117,6 +128,8 @@ export interface FaturaDTO {
   dataVencimento: string;
   dataPagamento: string | null;
   status: FaturaStatus;
+  formaPagamento: string | null;
+  observacoes: string | null;
 }
 
 export type DespesaStatus = 'Pendente' | 'Pago';
@@ -128,6 +141,8 @@ export interface DespesaDTO {
   valor: number;
   dataDespesa: string;
   status: DespesaStatus;
+  recorrente: boolean;
+  observacoes: string | null;
 }
 
 export interface WikiPaginaDTO {
@@ -263,6 +278,30 @@ export interface CadastroChamadoInternoDTO {
   assunto: string;
   descricao: string;
   prioridade: Prioridade;
+}
+
+export interface CadastroFaturaDTO {
+  idCliente: number;
+  idContrato?: number | null;
+  idProjeto?: number | null;
+  descricao: string;
+  valor: number;
+  dataEmissao: string;
+  dataVencimento: string;
+  observacoes?: string | null;
+}
+
+export interface MarcarFaturaPagaDTO {
+  formaPagamento?: string | null;
+}
+
+export interface CadastroDespesaDTO {
+  descricao: string;
+  categoria: string;
+  valor: number;
+  dataDespesa: string;
+  recorrente: boolean;
+  observacoes?: string | null;
 }
 
 export interface CadastroAtividadeDTO {

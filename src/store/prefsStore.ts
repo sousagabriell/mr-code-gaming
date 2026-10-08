@@ -36,6 +36,9 @@ interface PrefsState {
   /** Força movimento reduzido mesmo se o sistema não pedir. */
   reduceMotion: boolean;
   toggleReduceMotion: () => void;
+  /** Placas com o nome de cada construção (totens na cidade 3D). */
+  showSigns: boolean;
+  toggleShowSigns: () => void;
 }
 
 export const usePrefsStore = create<PrefsState>((set, get) => ({
@@ -50,5 +53,11 @@ export const usePrefsStore = create<PrefsState>((set, get) => ({
     const reduceMotion = !get().reduceMotion;
     write('mrcode-city:reduce-motion', reduceMotion ? 'on' : 'off');
     set({ reduceMotion });
+  },
+  showSigns: read('mrcode-city:signs') !== 'off',
+  toggleShowSigns: () => {
+    const showSigns = !get().showSigns;
+    write('mrcode-city:signs', showSigns ? 'on' : 'off');
+    set({ showSigns });
   },
 }));

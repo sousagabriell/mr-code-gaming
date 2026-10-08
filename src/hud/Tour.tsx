@@ -30,6 +30,12 @@ const STEPS: Step[] = [
       'Aproxime, gire e volte à visão geral. O martelo (tecla B) mostra onde a próxima sede será construída — é assim que se cadastra um cliente. Dê duplo clique num canteiro para abrir o pátio do Kanban e arrastar as caixas.',
   },
   {
+    target: 'phone',
+    titulo: 'O celular do atendimento',
+    texto:
+      'A fila de chamados e a conversa com cada cliente moram aqui. Abra um chamado para responder, mudar o status ou transformá-lo em tarefa no pátio — com prazo, que o cliente recebe por mensagem. Esc recolhe o aparelho.',
+  },
+  {
     target: 'level',
     titulo: 'Nível, missões e conquistas',
     texto:

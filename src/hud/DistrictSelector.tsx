@@ -53,8 +53,8 @@ export function DistrictSelector() {
         <button onClick={next} className="flex items-center gap-2.5 rounded-l-xl py-1.5 pl-1.5 pr-2 text-left hover:bg-surface-2/60" title="Próximo distrito">
           <CodeBadge code={current.code} active />
           <span className="min-w-0">
-            <span className="block max-w-44 truncate text-[13px] font-semibold text-ink">{current.nome}</span>
-            <span className="block max-w-44 truncate text-[11px] text-ink-3">{current.sub}</span>
+            <span className="block max-w-32 truncate 2xl:max-w-44 text-[13px] font-semibold text-ink">{current.nome}</span>
+            <span className="block max-w-32 truncate 2xl:max-w-44 text-[11px] text-ink-3">{current.sub}</span>
           </span>
           <ChevronRight className="h-4 w-4 text-ink-3" />
         </button>

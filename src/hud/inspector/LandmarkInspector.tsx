@@ -1,4 +1,4 @@
-import { BookOpen, Landmark as LandmarkIcon, Server, University } from 'lucide-react';
+import { BookOpen, Landmark as LandmarkIcon, Server, University, Wallet } from 'lucide-react';
 import { useDashboardQuery } from '../../api/queries';
 import { environment } from '../../config/environment';
 import { useWorld } from '../../hooks/useWorld';
@@ -6,13 +6,14 @@ import { formatBRL, formatDate, formatRelative } from '../../lib/format';
 import { useUiStore, type LandmarkKind } from '../../store/uiStore';
 import { computeSaldo } from '../../world/health';
 import { label } from '../../world/status';
-import { EmptyHint, KeyValue, ListRow, ProgressBar, Section, StatusChip } from '../ui';
+import { Button, EmptyHint, KeyValue, ListRow, ProgressBar, Section, StatusChip } from '../ui';
 import { InspectorShell, StatusLine } from './Shell';
 
 function Banco() {
   const { faturas, despesas } = useWorld();
   const { data: dashboard } = useDashboardQuery();
   const select = useUiStore((s) => s.select);
+  const enterBanco = useUiStore((s) => s.enterBanco);
   const fin = dashboard?.financeiroMesAtual;
   const saldo = computeSaldo(faturas, despesas);
   const emAberto = faturas
@@ -20,7 +21,18 @@ function Banco() {
     .sort((a, b) => (a.status === 'Atrasado' ? -1 : 1) - (b.status === 'Atrasado' ? -1 : 1));
 
   return (
-    <InspectorShell icon={<LandmarkIcon className="h-5 w-5" />} eyebrow="Financeiro · BC" title="Banco Central" subtitle="Faturas, despesas e caixa" adminPath="/financeiro/faturas">
+    <InspectorShell
+      icon={<LandmarkIcon className="h-5 w-5" />}
+      eyebrow="Financeiro · BC"
+      title="Banco Central"
+      subtitle="Faturas, despesas e caixa"
+      adminPath="/financeiro/faturas"
+      footer={
+        <Button variant="primary" onClick={enterBanco}>
+          <Wallet className="h-3.5 w-3.5" /> Ver conta bancária
+        </Button>
+      }
+    >
       <StatusLine>
         <StatusChip status={saldo >= 0 ? 'Saldo positivo' : 'Saldo negativo'} tone={saldo >= 0 ? 'ok' : 'bad'} />
         <span className="font-semibold text-ink tabular">{formatBRL(saldo)}</span>

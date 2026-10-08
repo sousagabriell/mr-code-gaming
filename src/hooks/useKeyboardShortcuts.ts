@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { goHome, panStep, rotateQuarter, zoomStep } from '../hud/camera';
 import { useGameStore } from '../store/gameStore';
+import { usePhoneStore } from '../store/phoneStore';
 import { usePrefsStore } from '../store/prefsStore';
 import { useUiStore } from '../store/uiStore';
 
@@ -25,9 +26,14 @@ export function useKeyboardShortcuts() {
 
       if (e.key === 'Escape') {
         if (ui.searchOpen) return; // a própria paleta trata
+        const phone = usePhoneStore.getState();
         if (game.panelOpen) game.closePanel();
         else if (ui.drawer) ui.closeDrawer();
+        // O celular vem antes da seleção: volta uma tela e, no primeiro nível, recolhe o aparelho.
+        else if (phone.montado && phone.aberto && phone.voltar()) return;
+        else if (phone.montado && phone.aberto) phone.setAberto(false);
         else if (ui.buildMode) ui.setBuildMode(false);
+        else if (ui.banco) ui.exitBanco();
         else if (ui.selected) ui.clearSelection();
         else if (ui.yard) ui.exitYard();
         return;

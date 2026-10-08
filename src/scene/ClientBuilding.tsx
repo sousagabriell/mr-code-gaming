@@ -1,13 +1,16 @@
 import { useLayoutEffect, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { RoundedBox } from '@react-three/drei';
 import { easing } from 'maath';
 import type { Group } from 'three';
 import type { ClientPlot } from '../world/layout';
 import { CLIENT_COLOR_BY_STATE, COLORS, PRIORIDADE_COLOR } from '../world/colors';
 import { clienteCode, clienteNome, worstPrioridade } from '../world/status';
+import { clientSignAnchor } from '../world/signs';
+import { usePrefsStore } from '../store/prefsStore';
 import { useUiStore } from '../store/uiStore';
 import { buildingFor } from './assets';
+import { BuildingSign } from './BuildingSign';
 import { HIGHLIGHT, useKenneyModel } from './kenney';
 import { MapPin } from './MapPin';
 import { SceneTag } from './SceneTag';
@@ -25,8 +28,11 @@ export function ClientBuilding({ plot }: { plot: ClientPlot }) {
   const isSelected = useUiStore((s) => s.selected?.kind === 'cliente' && s.selected.id === plot.cliente.idCliente);
   const { hovered, bind } = useHover();
 
+  const showSigns = usePrefsStore((s) => s.showSigns);
+
   const status = CLIENT_COLOR_BY_STATE[plot.colorState];
   const inactive = plot.colorState === 'encerrado';
+  const accent = inactive ? '#94a3b8' : COLORS.brandBlue;
   const [x, , z] = plot.position;
   const highlight = hovered || isSelected;
 
@@ -51,38 +57,47 @@ export function ClientBuilding({ plot }: { plot: ClientPlot }) {
     if (groupRef.current) easing.damp(groupRef.current.scale, 'y', 1, 0.35, delta);
   });
 
-  return (
-    <group position={[x, 0, z]}>
-      {/* Base colorida = estado do contrato (azul ativo · âmbar pendente · cinza encerrado/sem contrato). */}
-      <RoundedBox args={[size.x + 0.3, 0.08, size.z + 0.3]} radius={0.03} position={[0, 0.04, 0]} receiveShadow>
-        <meshStandardMaterial color={status} roughness={0.7} />
-      </RoundedBox>
+  const chamados = `${plot.chamadosAbertos.length} chamado${plot.chamadosAbertos.length === 1 ? '' : 's'}`;
+  const pick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    select({ kind: 'cliente', id: plot.cliente.idCliente });
+  };
 
-      <group
-        ref={groupRef}
-        position={[0, 0.08, 0]}
-        onClick={(e) => {
-          e.stopPropagation();
-          select({ kind: 'cliente', id: plot.cliente.idCliente });
-        }}
-        {...bind}
-      >
-        <primitive object={root} />
+  return (
+    <>
+      <group position={[x, 0, z]}>
+        {/* Base colorida = estado do contrato (azul ativo · âmbar pendente · cinza encerrado/sem contrato). */}
+        <RoundedBox args={[size.x + 0.3, 0.08, size.z + 0.3]} radius={0.03} position={[0, 0.04, 0]} receiveShadow>
+          <meshStandardMaterial color={status} roughness={0.7} />
+        </RoundedBox>
+
+        <group ref={groupRef} position={[0, 0.08, 0]} onClick={pick} {...bind}>
+          <primitive object={root} />
+        </group>
+
+        {pinColor && <MapPin position={[0, h + 0.3, 0]} color={pinColor} />}
+
+        <SceneTag
+          visible={highlight || plot.chamadosAbertos.length > 0}
+          position={[0, h + (pinColor ? 1.1 : 0.55), 0]}
+          code={clienteCode(plot.cliente.idCliente)}
+          // Com a placa ligada o nome já está no totem: a pílula fica só com o estado ao vivo.
+          text={highlight && !showSigns ? clienteNome(plot.cliente) : chamados}
+          accent={accent}
+        />
       </group>
 
-      {pinColor && <MapPin position={[0, h + 0.3, 0]} color={pinColor} />}
-
-      <SceneTag
-        visible={highlight || plot.chamadosAbertos.length > 0}
-        position={[0, h + (pinColor ? 1.1 : 0.55), 0]}
+      {/* Fora do grupo acima: a âncora é do mundo (o billboard precisa dela) e a animação de crescer
+          do chão esmagaria a placa junto. */}
+      <BuildingSign
+        anchor={clientSignAnchor(plot.lotCenter)}
         code={clienteCode(plot.cliente.idCliente)}
-        text={
-          highlight
-            ? clienteNome(plot.cliente)
-            : `${plot.chamadosAbertos.length} chamado${plot.chamadosAbertos.length > 1 ? 's' : ''}`
-        }
-        accent={inactive ? '#94a3b8' : COLORS.brandBlue}
+        name={clienteNome(plot.cliente)}
+        accent={accent}
+        focused={highlight}
+        onClick={pick}
+        bind={bind}
       />
-    </group>
+    </>
   );
 }

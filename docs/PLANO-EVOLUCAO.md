@@ -60,17 +60,17 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ [Logo]  [🔍 Buscar clientes, projetos, chamados…  /]  [CL-03 Distrito ▾]  ●Live 09:40  🔔  [Avatar] │  ← TopBar
+│ [Logo] [🔍 Buscar clientes, projetos…  /] [CL-03 ▾] [Lista] [+ − ↺ ↻ ⌂ ⚒] ☀84 🔔 [Avatar] │  ← TopBar
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ [KPI] [KPI] [KPI]                                         [+]  ┌─────────────┐ │
-│                                                           [−]  │ INSPECTOR   │ │
-│                 MUNDO 3D (isométrico, claro)              [⟲]  │ tipo · local│ │
-│     rótulos ancorados · pins · colchetes de seleção       [⟳]  │ status chip │ │
-│                                                           [⌂]  │ barra prog. │ │
+│ [KPI] [KPI] [KPI]                                              ┌─────────────┐ │
+│                                                                │ INSPECTOR   │ │
+│                 MUNDO 3D (isométrico, claro)                   │ tipo · local│ │
+│     rótulos ancorados · pins · colchetes de seleção            │ status chip │ │
+│                                                                │ barra prog. │ │
 │                                                                │ chave/valor │ │
 │                                                                └─────────────┘ │
-│ ┌─ Timeline (ciclo de vida) ────────────┬─ card atual ┐  ┌─ Tabela por abas ─┐ │
-│ │ ●──●──◉──○──○                         │ #MC-…  ▸     │  │ Chamados│Projetos │ │
+│ ┌─ Timeline (ciclo de vida) ────────────┬─ card atual ┐  ┌─ Celular ─────────┐ │
+│ │ ●──●──◉──○──○                         │ #MC-…  ▸     │  │ Chamados │ Chat   │ │
 │ └───────────────────────────────────────┴──────────────┘  └───────────────────┘ │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -81,7 +81,8 @@
 |---|---|---|
 | Busca global com atalho `/` | Command palette: clientes, projetos, chamados, faturas, wiki, pessoas → seleciona e voa até a entidade | store local (já carregado) |
 | Seletor de site "WH-01 Riverside Hub · 78% full · 1/2 docked" | **Seletor de distrito**: Visão geral · cada cliente (`CL-03 Clínica Vida · 2 projetos · 1 chamado`) · Centro Financeiro · Campus (Wiki) · Data Center · Prefeitura (Contratos) | derivado |
-| "Live 09:40" | Indicador de sincronização (polling) + relógio; fica âmbar se a última sync falhou | React Query |
+| "Live 09:40" | Virou o **relógio e o wifi do celular** (barra de status). Na barra superior sobrou só o chip "Reconectando", que aparece quando a sincronização falha | React Query |
+| Controles de câmera | Zoom, girar, visão geral e construir: na barra a partir de 1024px; abaixo disso, barrinha vertical flutuante | — |
 | Sino com badge | Notificações reais, marcar como lida / todas | `/Notificacao/*` |
 | KPI cards (Stock on hand, Trucks on site, On-time delivery) | **Saldo do mês**, **Chamados abertos**, **Projetos ativos / atrasados** (com delta) — contextuais ao distrito selecionado | `/Dashboard/resumo`, `/Financeiro/resumo` |
 | Barra vertical de câmera (+ − ⟲ ⟳ ⌂) | Mesma barra, à direita, ao lado do inspector | CameraControls |
@@ -265,6 +266,20 @@ Cuidados: XP nunca deve incentivar ação errada (ex.: fechar chamado sem resolv
 - [x] Orçamento de performance (`?perf`; ≤ 450 draw calls) e code-splitting (login ≈ 85 KB gzip)
 - [x] Testes E2E (Playwright, 6 testes somente leitura) e CI (lint, tipos, unit, build)
 - [x] Build em subcaminho (`VITE_BASE=/city/`) + snippet Nginx
+- [x] Ruas com os ladrilhos do kit de estradas da Kenney (no lugar dos planos coloridos) e prédios
+      cívicos do kit industrial — Data Center vira o tanque, Banco e Prefeitura trocam de modelo
+      (ver MANUAL-TECNICO §9.6)
+- [x] Placas com o nome de cada construção (totem que acompanha a câmera) nos landmarks e nas sedes;
+      somem ao afastar a câmera e têm chave no menu do usuário (MANUAL-TECNICO §9.7)
+- [x] Campo com bosque em volta da cidade no lugar do chão branco; a cidade passa a ficar num tapete
+      claro (MANUAL-TECNICO §9.8)
+- [x] **Celular do atendimento** no lugar da tabela de abas: fila de chamados com filtros e três abas
+      (abertos, em andamento, fechados), detalhe do chamado e chat com o cliente — uma conversa por
+      cliente, montada a partir das threads de `/Chamado/{id}/mensagens`. Converter chamado em tarefa
+      passou a exigir prazo, que vira mensagem automática no chat (MANUAL-TECNICO §10.1)
+- [x] Barra superior enxuta: sai o chip "Live" (o relógio e a sincronização vivem no celular; sobra o
+      alerta "Reconectando") e entram os controles de câmera na horizontal, a partir de 1024px
+      (MANUAL-TECNICO §10.2)
 - [ ] Deploy automático (incluir no `cd.yml` do MrCodeAdmin? — decisão de infraestrutura)
 
 ---

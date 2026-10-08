@@ -208,7 +208,8 @@ src/
 │   ├── gameStore.ts         # Painel do jogo, celebração, som, progresso salvo
 │   ├── toastStore.ts        # Notificações efêmeras
 │   ├── cityEvents.ts        # Animações passageiras (caminhão saindo, carro-forte)
-│   ├── prefsStore.ts        # Modo 3D/lista, reduzir animações, detecção de WebGL
+│   ├── prefsStore.ts        # Modo 3D/lista, reduzir animações, placas, detecção de WebGL
+│   ├── phoneStore.ts        # Celular: aberto/recolhido, aba, tela e filtros da listagem
 │   └── tourStore.ts         # Tour guiado (passo atual, "já visto" por usuário)
 │
 ├── hooks/
@@ -220,7 +221,7 @@ src/
 │   ├── useKeyboardShortcuts.ts
 │   ├── useNow.ts            # "Agora" como estado (evita Date.now() no render)
 │   ├── useReducedMotion.ts  # Sistema OU preferência do usuário
-│   └── useIsMobile.ts       # < 768px
+│   └── useIsMobile.ts       # useMediaQuery + useIsMobile (< 768px) e useIsDesktop (≥ 1024px)
 │
 ├── world/                   # Regras puras (testadas)
 │   ├── layout.ts            # Grade de lotes, canteiros, caminhões, ruas
@@ -232,6 +233,10 @@ src/
 │   ├── positions.ts         # Onde a câmera olha para cada entidade
 │   ├── gamification.ts      # XP, níveis, saúde, missões, ranking, conquistas
 │   ├── health.ts            # Saldo e saúde do banco / data center
+│   ├── signs.ts             # Placas: âncoras, recorte do rótulo, curva de opacidade
+│   ├── outskirts.ts · seeded.ts  # Bosque do campo e o pseudoaleatório determinístico
+│   ├── phone.ts             # Celular: abas, filtros, conversas, blocos do chat, prazo
+│   ├── text.ts              # `norm` (busca sem acento/caixa)
 │   └── colors.ts            # Paleta 3D
 │
 ├── scene/                   # Componentes R3F
@@ -241,8 +246,11 @@ src/
 │   ├── ClientBuilding.tsx · ConstructionSite.tsx · Landmark.tsx
 │   ├── Citizens.tsx · Walkers.tsx
 │   ├── CityDecor.tsx        # Construções desbloqueadas por nível
+│   ├── Outskirts.tsx        # Bosque instanciado no campo em volta da cidade
 │   ├── Weather.tsx · weatherStyle.ts
 │   ├── SceneTag.tsx · MapPin.tsx · SelectionMarker.tsx · BuildGhost.tsx
+│   ├── assets.ts · kenney.ts   # URLs dos GLB por kit e carga/normalização dos modelos
+│   ├── BuildingSign.tsx · signTexture.ts · signView.ts  # Placas com o nome de cada construção
 │   ├── labelsPortal.ts · movers.ts · useHover.ts · motion.ts
 │   ├── perf.ts · PerfProbe.tsx  # Medidor ?perf (renderer.info)
 │   ├── vehicles/            # TruckModel, ChamadoTruck, EventVehicles, detector de eventos
@@ -250,8 +258,9 @@ src/
 │
 ├── hud/                     # Componentes DOM
 │   ├── TopBar · DistrictSelector · NotificationBell · SearchPalette
-│   ├── KpiCards · CameraToolbar · TimelineTray · EntityTable
-│   ├── FormDrawer · Toasts
+│   ├── KpiCards · CameraToolbar · TimelineTray
+│   ├── FormDrawer · Toasts · chamadoActions.ts
+│   ├── phone/               # Celular do atendimento: aparelho, app, telas de chamados e chat
 │   ├── inspector/           # Inspector + um por tipo de entidade (incl. Atividade)
 │   ├── forms/               # Cliente, Projeto, Chamado, Atividade, Coluna, ConverterChamado
 │   ├── yard/                # YardPanel, YardTable
@@ -292,7 +301,8 @@ Objeto `api` agrupado por módulo — `clientes`, `contratos`, `projetos`, `cham
 
 ### 6.3 Queries e atualização
 
-- Polling global de **30 s** (`LIVE_INTERVAL_MS`) + refetch ao focar a janela. É o "Live" da barra superior.
+- Polling global de **30 s** (`LIVE_INTERVAL_MS`) + refetch ao focar a janela. O estado aparece no wifi
+  da barra de status do celular (§10.1); falhando, a barra superior mostra o chip "Reconectando".
 - `useWorld()` combina 9 queries **independentes** (uma falha não derruba as demais) e devolve um objeto
   **memoizado** — pode ser dependência de `useMemo`. `isLoading`/`isError` consideram só clientes,
   contratos, projetos e chamados.
@@ -315,11 +325,23 @@ Objeto `api` agrupado por módulo — `clientes`, `contratos`, `projetos`, `cham
 | `useCriarAtividade`, `useAtualizarAtividade`, `useRemoverAtividade` | Kanban | não |
 | `useCriarColuna`, `useRenomearColuna`, `useRemoverColuna` | Kanban | não |
 | `useComentar` | `POST /Kanban/atividades/{id}/comentarios` | não |
-| `useConverterChamado` | `POST /Chamado/{id}/converter-atividade` | não |
+| `useEnviarMensagem` | `POST /Chamado/{id}/mensagens` | não |
+| `useConverterChamado` | `POST /Chamado/{id}/converter-atividade` **+ 2** (ver abaixo) | não |
 | `useMarcarNotificacaoLida`, `useMarcarTodasLidas` | `PATCH /Notificacao/...` | não |
 
 Padrão de `useGameMutation`: toast de sucesso; em erro **de campo** não mostra toast (o formulário exibe
 no campo); `onSettled` invalida os recursos afetados e o `dashboard`.
+
+**`useConverterChamado` são três chamadas**, porque `POST /Chamado/{id}/converter-atividade` não aceita
+prazo:
+
+1. converte — a caixa passa a existir no pátio;
+2. `PUT /Kanban/atividades/{id}` grava o `dataPrazo`. O `PUT` substitui o registro inteiro, então
+   título, descrição, tipo, prioridade e responsável voltam a partir da atividade do passo 1;
+3. `POST /Chamado/{id}/mensagens` avisa o cliente (`mensagemDePrazo`).
+
+Depois do passo 1 nada pode virar um "falhou" genérico — o usuário repetiria e duplicaria a caixa.
+Os passos 2 e 3 são capturados e o toast diz exatamente o que não foi salvo.
 
 ---
 
@@ -352,6 +374,10 @@ recarregar sem perder o foco. `select()` estando no pátio sai dele (exceto para
   (`mrcode-city:game:<id>` → `{achievements, level, xp}`). Todo acesso a storage é protegido por `try/catch`.
 - `toastStore` — tons `ok | bad | info | xp`; some em 4 s (6 s para erro); máximo de 4 empilhados.
 - `cityEvents` — fila de animações (`truck-leave`, `armored`) e a flag `ready`.
+- `phoneStore` — celular: `aberto` (persistido em `mrcode-city:phone`, padrão ligado), aba, tela e
+  filtros. `setAberto` é a escolha do usuário e persiste; `recolher` é o recolhimento automático e
+  **não** vira preferência. `montado` diz se o aparelho está mesmo na tela — é o que autoriza o `Esc`
+  global a mexer nele.
 
 > Em dev, `window.__ui` e `window.__game` expõem os stores para testes de navegador (Playwright).
 
@@ -398,6 +424,19 @@ Tudo aqui é determinístico e testado em `src/world/*.test.ts`.
 fatura → sede do cliente; landmarks → posição fixa. Entidades móveis são consultadas em tempo real via
 `scene/movers.ts`.
 
+### 8.6 Celular (`phone.ts`)
+
+- `ABA_STATUS` mapeia as três abas nos quatro status (`Resolvido` + `Fechado` = "fechados");
+  `filtrarChamados` e `contarPorAba` aplicam busca (via `norm`), prioridade, origem e o cliente do
+  contexto — a contagem usa os **mesmos** filtros da lista, senão o número contradiz o que se vê.
+- `conversas(clientes, chamados)` monta o índice do chat: uma conversa por cliente, ordenada pela
+  atividade mais recente, com os clientes sem chamado no fim.
+- `blocosDaConversa(mensagens, chamados)` mescla as threads em ordem cronológica e abre um bloco novo
+  a cada troca de `idChamado` — é o separador de protocolo da conversa.
+- `prazoInvalido` e `mensagemDePrazo` governam a conversão: o prazo é obrigatório, não pode ser no
+  passado, e `formatarPrazo` monta `dd/mm/aaaa` sem passar por `Date` (que leria `yyyy-mm-dd` como UTC
+  e viraria o dia).
+
 ---
 
 ## 9. Cena 3D
@@ -427,10 +466,12 @@ fatura → sede do cliente; landmarks → posição fixa. Entidades móveis são
 
 | Componente | Observações |
 |---|---|
-| `Ground` | Chão, praça, ruas com faixa tracejada, lotes, árvores/troncos em `Instances` |
+| `Ground` | Campo, tapete claro da cidade, praça, malha viária em ladrilhos (`Instances` por peça), lotes, árvores |
+| `Outskirts` | Bosque instanciado no campo em volta da cidade (§9.8) |
 | `ClientBuilding` | "Sobe do chão" ao aparecer; pin de atenção; etiqueta `CL-xx` |
 | `ConstructionSite` | Estacas (planejamento), andaime ∝ progresso + guindaste, faixa (pausado), anexo (concluído); duplo clique entra no pátio |
-| `Landmark` | Data Center, Banco, Universidade, Prefeitura; cor/pulso pela saúde |
+| `Landmark` | Data Center (tanque industrial), Banco, Universidade, Prefeitura; cor/pulso pela saúde |
+| `BuildingSign` | Placa com o nome da construção (§9.7); some ao afastar a câmera e pela chave do menu |
 | `ChamadoTruck` | Chega do oeste se o chamado surgiu na sessão; porta aberta em atendimento; giroflex se Alta |
 | `EventVehicles` | `DepartingTruck` e `ArmoredTruck` (+ moedas) a partir de `cityEvents` |
 | `Walkers` | Pedestres com rota pela calçada; fases `rest → go → work → back` em rodízio entre projetos |
@@ -456,6 +497,83 @@ na carga inicial nem ao voltar do pátio).
 Instancing (árvores, nuvens, chuva), sombras limitadas (mapa 2048, frustum ±26), DPR adaptativo e AO
 adaptativo. Veja §17 para o que ainda falta (code-splitting, LOD).
 
+### 9.6 Modelos 3D (kits Kenney, CC0)
+
+Os kits originais ficam em `assets-src/kenney/<kit>/` — **fora do git** (`.gitignore`) por causa do peso
+(FBX/OBJ/previews). O que entra no build é só o GLB usado, gerado por:
+
+```bash
+npm run models        # scripts/sync-models.mjs
+```
+
+O script otimiza com `gltf-transform` (meshopt, textura embutida) para `public/models/<grupo>/` e copia a
+licença. Grupos: `city` (comercial), `industrial`, `roads`, `nature`, `cars`, `characters` — pastas
+separadas porque os nomes colidem entre kits (`building-a` existe no comercial e no industrial). Kit
+ausente em `assets-src` é pulado, mantendo o que já está em `public/models`.
+
+Um kit pode entregar outro formato/layout: `sub` troca a subpasta e `ext` a extensão (o "3D Road Tiles"
+é `Models/gLTF/*.gltf`), e uma entrada `{ from, to }` renomeia no destino — `roadTile_019` não diz nada,
+`pine` diz.
+
+**A lista de modelos do script deve espelhar `src/scene/assets.ts`.** Lá ficam as URLs por kit
+(`cityModel`, `industrialModel`, `roadModel`, `carModel`, `characterModel`), o `brightnessFor` (clareia a
+cor base por kit — a paleta da Kenney é mais escura que a maquete) e o `PRELOAD`.
+
+`useKenneyModel` (em `kenney.ts`) centraliza a cópia normalizada: centrada em x/z, apoiada em y = 0 e
+escalada ao tamanho pedido. `useKenneyParts` é a variante para instanciar — devolve geometria + material
+por primitiva do GLB, prontos para `InstancedMesh`, com normalização e troca de cor opcionais.
+
+**Ruas:** `Ground` monta a malha com os ladrilhos 1×1 do kit de estradas. O quarteirão (`LOT_SPACING`) é
+dividido em `TILES_PER_BLOCK = 6` ladrilhos, então a largura da pista sai do passo e as retas encostam
+exatamente nos cruzamentos. `junctionFor` escolhe peça e giro pelas saídas do cruzamento (cruz no miolo,
+T nas bordas, curva nos cantos); na orientação original a reta corre no eixo x, a curva liga -x a +z e o
+T tem a perna em +z.
+
+### 9.7 Placas com nomes (`BuildingSign`)
+
+Cada landmark e cada sede de cliente ganha um **totem**: painel sobre um poste, em frente ao prédio, com
+o código e o nome (`clienteNome` / `LANDMARK_META` — nada de derivar rótulo em outro lugar).
+
+- **Texto em `CanvasTexture`, não no `<Text>` do drei.** O troika recusa `.woff2` e `@fontsource-variable/inter`
+  só entrega `.woff2`; sem arquivo local ele ainda cai num CDN (jsDelivr) para a fonte padrão e para o
+  resolvedor Unicode. O canvas reaproveita a Inter que a HUD já carregou, custa 1 draw call por placa e
+  pinta o mesmo cartão da pílula de hover. `signTexture.ts` rasteriza; `useSignFontsReady()` espera a
+  fonte (o Canvas2D não dispara `@font-face` preguiçoso sozinho).
+- **Billboard só no eixo y.** O azimute da câmera é livre, então placa presa à fachada ficaria de costas
+  metade do tempo. Continua girando com movimento reduzido ligado — é legibilidade, não enfeite.
+- **Material básico.** Com material iluminado o texto escureceria na tempestade e o brilho pulsaria
+  enquanto o usuário gira a cidade (o painel muda de ângulo com a luz direcional).
+- **Geometria e fade em `world/signs.ts`** (puro, testado). O totem é alto de propósito: o lote de 3,8
+  não tem canto livre para o painel quando o cliente tem 4+ projetos, então o poste passa *entre* os
+  canteiros e o painel passa *por cima* deles (`LOT_OBSTACLE_TOP`).
+- **O fade usa `controls.distance`**, publicada por `SignViewUpdater` em `signView.ts`. Medir por placa
+  faria a cidade desbotar em gradiente e as placas sumirem uma a uma ao girar.
+- A placa herda `onClick` e o hover do prédio: sem isso o clique nela cairia no `onPointerMissed` do
+  `Canvas` e **limparia a seleção**.
+- Chave "Placas com nomes" no menu do usuário (`mrcode-city:signs`). Com a placa ligada, a pílula de
+  hover mostra só o estado ao vivo (`N chamados`) — o nome já está no totem.
+
+### 9.8 Campo em volta da cidade (`Outskirts`)
+
+O chão (160×160) é verde (`COLORS.field`); a cidade fica num **tapete claro** (`cityPlatform`) desenhado
+logo abaixo das ruas, em y = 0,004. Fora dele, `Outskirts` espalha pinheiros e arbustos.
+
+- **Espalhamento puro e determinístico** em `world/outskirts.ts` (`seeded`, de `world/seeded.ts`): o
+  bosque nasce igual a cada render e entre sessões, sem guardar nada. `insideCity` barra o miolo urbano
+  e `MIN_SPACING` impede que duas copas se embolem.
+- O alcance para em `FIELD_REACH = 38` — a névoa começa em 38 e a câmera não se afasta além de 48, então
+  povoar mais longe só custaria.
+- **Tudo instanciado** (`useKenneyParts` + drei `<Instances>`): o pinheiro da Kenney vem com copa e
+  tronco em primitivas separadas, então cada peça vira sua própria `<Instances>` — 4 draw calls para o
+  campo inteiro.
+- **Cores do tema, não do kit.** Os modelos vêm do "3D Road Tiles", que é de outra safra: sem textura e
+  com verde oliva saturado. Como a cor mora só no material, `useKenneyParts({ colors })` troca `Grass`
+  por `COLORS.tree` e `Alternate_Dirt` por `COLORS.trunk`. Passe uma referência **estável** em `colors`:
+  ela entra nas dependências do memo.
+- Daquele kit só saem `pine` e `bush` (renomeados de `roadTile_019`/`020` no `sync-models.mjs`). Os
+  blocos de relevo foram testados e descartados: isolados num plano liso viram lajes verdes angulares,
+  não morros.
+
 ---
 
 ## 10. HUD
@@ -465,19 +583,92 @@ base = linha do tempo / pátio + tabela. Tudo em `pointer-events-none` com filho
 
 | Componente | Função |
 |---|---|
-| `TopBar` | Logo, nível, busca, seletor de distrito, saúde, "Live", sino, menu do usuário (sons, sair) |
+| `TopBar` | Logo, nível, busca, seletor de distrito (≥ xl), lista/3D, controles de câmera (≥ lg), saúde, alerta de sincronização, sino, menu do usuário (sons, sair) |
 | `DistrictSelector` | Visão geral, cada cliente (`CL-xx`) e cada landmark; no pátio mostra o projeto |
 | `SearchPalette` | `/` — clientes, projetos, chamados, faturas, equipe, wiki; sem acento/caixa; setas + Enter |
 | `KpiCards` | Contextuais: cidade → saldo/chamados/projetos; cliente → contrato/chamados/a receber; pátio → fila/entregues/bugs |
-| `CameraToolbar` | Zoom, girar 90°, casa, modo construção (no pátio: nova atividade) |
+| `CameraToolbar` | Zoom, girar 90°, casa, modo construção (no pátio: nova atividade). `horizontal` na barra superior a partir de 1024px; vertical e flutuante abaixo disso (§10.2) |
 | `Inspector` | Card por entidade, com ⌖/seguir, ↗ abrir no Angular, ✕ |
 | `TimelineTray` | Ciclo de vida da entidade selecionada (ou do chamado mais urgente) |
-| `EntityTable` | Abas Chamados/Projetos/Faturas filtradas pelo contexto |
+| `Phone` | Celular do atendimento: fila de chamados e chat com o cliente (§10.1) |
 | `FormDrawer` | Painel lateral de formulários; `key` força formulário limpo |
 | `Toasts` | Empilha; tom `xp` com gradiente |
 
 `ui.tsx` reúne os átomos (`Glass`, `StatusChip`, `ProgressBar`, `KeyValue`, `Section`, `ListRow`, `Button`…);
 `tones.ts` guarda `cx` e as classes de tom (separado para não quebrar o Fast Refresh).
+`chamadoActions.ts` guarda a tabela `TRANSITIONS` (próximos status de um chamado), compartilhada pelo
+inspector e pelo celular.
+
+### 10.1 Celular do atendimento (`hud/phone/`)
+
+Ocupa o canto inferior direito — o lugar da antiga `EntityTable`. É um aparelho desenhado com os
+tokens do tema (corpo `bg-ink`, tela clara), com um app de duas áreas na barra de tarefas:
+**Chamados** e **Chat**.
+
+| Arquivo | Tela |
+|---|---|
+| `Phone.tsx` | O aparelho: barra de status, ilha, recolher/expandir |
+| `PhoneApp.tsx` | Casca: tela atual + barra de tarefas + indicador de home (que **é** o botão de recolher) |
+| `ChamadosScreen.tsx` | Busca, filtros de prioridade/origem, abas Abertos · Em andamento · Fechados |
+| `ChamadoScreen.tsx` | Detalhe — mesma estrutura do portal Angular, **sem** o bloco de mensagens |
+| `ConverterScreen.tsx` | Chamado → caixa no pátio, com prazo obrigatório |
+| `ChatScreen.tsx` · `ConversaScreen.tsx` | Conversas (uma por cliente) e a linha do tempo da conversa |
+
+Regras puras em `world/phone.ts` (testadas em `phone.test.ts`); navegação e filtros em
+`store/phoneStore.ts`. Dimensões: **a mesma largura do inspector** (`min(352px, 100vw-32px)`), para que
+os dois formem uma coluna só; `min(640px, 100vh-92px)` aberto e 124px recolhido — é a **altura do
+contêiner** que anima (desligada com movimento reduzido).
+
+**De onde vem cada dado.**
+- A listagem filtra `world.chamados` **no cliente** — nenhuma chamada nova, e o "Live" de 30 s
+  continua valendo. Os quatro status do backend viram três abas: `Resolvido` mora junto com
+  `Fechado` (é um fechado que o cliente ainda pode reabrir).
+- A conversa de um cliente é a **união das threads dos chamados dele** — ver a armadilha em §16.
+  As mensagens só são buscadas ao abrir a conversa (`useMensagensDoCliente`, no máximo 20 threads).
+- O selo do aparelho e da aba conta **chamados abertos**. Não existe "não lida": o backend não
+  guarda esse estado, e um contador inventado mentiria.
+
+**Comportamentos que não são óbvios.**
+- Aberto, o celular **cobre a coluna do inspector**. Enquanto houver algo selecionado ele fica
+  recolhido, e volta sozinho ao estado escolhido pelo usuário quando a seleção é limpa — senão clicar
+  num caminhão pareceria não fazer nada. É uma reação ao **estado** (`selected !== null`), não ao
+  evento, para também valer ao abrir a página com `?sel=` na URL; o `focusNonce` entra junto só para
+  o caso de trocar de entidade com o aparelho reaberto por cima. O recolhimento automático **não**
+  vira preferência; só o botão do usuário persiste (`recolher` vs. `setAberto`).
+- Com o celular recolhido a coluna do inspector desce até `lg:bottom-[156px]` (os 124px do aparelho
+  mais as folgas).
+- `Esc` volta uma tela, depois recolhe, e só então segue a cadeia global (ver §14).
+- Digitar no campo de resposta não dispara os atalhos globais (`isTyping`), mas o `Esc` é tratado
+  **antes** dessa guarda — o `<input>` trata `Escape` e chama `stopPropagation`.
+- No pátio o celular não existe: a `YardTable` continua ali.
+- A **barra de status faz as vezes do antigo chip "Live"**: o relógio é o relógio, e o wifi reflete a
+  sincronização — pulsa com `useIsFetching()` (sem pulsar com movimento reduzido) e vira `WifiOff`
+  vermelho quando `useWorld().isError`. Só o wifi muda de cor; bateria vermelha leria como pouca carga.
+
+### 10.2 Barra superior: onde moram os controles de câmera
+
+A `CameraToolbar` tem duas casas, e **só uma existe por vez** — não é `hidden`/`block`, é renderização
+condicional: dois elementos com `data-tour="toolbar"` no DOM fariam o tour destacar o invisível
+([Tour.tsx](src/hud/Tour.tsx#L57) usa `querySelector`).
+
+| Largura | Onde | Quem decide |
+|---|---|---|
+| ≥ 1024px | Barra superior, horizontal, ao lado do botão de lista | `TopBar` com `useIsDesktop()` |
+| 768–1023px | Coluna da direita, vertical | `Game.tsx` (`!desktop`) |
+| < 768px | Flutuante sob a barra, vertical | ramo `isMobile` do `Game.tsx` |
+
+No modo lista a pílula some dos dois lugares: controle de câmera sem canvas não comanda nada.
+
+**A barra é um orçamento de largura, não uma lista.** Com os seis botões dentro (≈226px), só cabe
+tudo a partir de 1440px. Duas regras seguram isso:
+
+- o contêiner da busca tem `min-w-0` (sem ele um item flex não encolhe abaixo do conteúdo, e a barra
+  transbordava — inclusive **antes** desta mudança) e um piso de 200px para continuar legível;
+- o seletor de distrito só aparece a partir de `xl`, e seus rótulos usam `max-w-32` até `2xl`. Entre
+  `lg` e `xl` o espaço vai para os controles de câmera; a navegação por distrito continua na busca (`/`)
+  e nos próprios prédios.
+
+Medido em 1024, 1280, 1440 e 1920: `scrollWidth === clientWidth` na barra em todas.
 
 ### Tema
 
@@ -494,7 +685,8 @@ Cor da marca `#134ced`. Tema claro "maquete"; `prefers-reduced-motion` reduz ani
 |---|---|
 | Clientes e contratos | Sedes; inspector de cliente; Prefeitura |
 | Projetos | Canteiros; inspector (cronograma, marcos, equipe, quadro) |
-| Chamados | Caminhões; inspector; tabela; sino |
+| Chamados | Caminhões; inspector; celular (aba Chamados); sino |
+| Mensagens do chamado | Celular, aba Chat — uma conversa por cliente |
 | Faturas e despesas | Banco; KPIs; inspector de fatura |
 | Wiki | Universidade (leitura; edição abre o Angular) |
 | Equipe | Prefeitura; pedestres e empilhadeiras |
@@ -509,8 +701,9 @@ Cor da marca `#134ced`. Tema claro "maquete"; `prefers-reduced-motion` reduz ani
 | Editar / ativar / desativar cliente | Inspector do cliente (preserva `idSistemaOrigem` — o `PUT` sobrescreve) |
 | **Abrir canteiro** (projeto) | Inspector do cliente → "Novo" |
 | **Abrir chamado** interno | Inspector do cliente → "Abrir" |
-| Iniciar / resolver / fechar / reabrir / assumir chamado | Inspector do chamado (otimista) |
-| **Converter chamado em atividade** | Inspector do chamado → escolhe projeto/zona → vai ao pátio |
+| Iniciar / resolver / fechar / reabrir / assumir chamado | Inspector do chamado ou celular (otimista) |
+| **Responder o cliente** | Celular → Chat → conversa do cliente (vai para a thread do chamado em foco) |
+| **Converter chamado em tarefa** | Inspector do chamado (caminhão → painel lateral) **ou** celular → detalhe → "Converter em tarefa". Nos dois: projeto, zona e **prazo obrigatório**, que vira mensagem automática no chat |
 | **Registrar pagamento** | Inspector da fatura (dispara o carro-forte) |
 | **Mover caixa** (atividade) | Arrastar entre zonas ou "Mover para a zona" |
 | Criar/editar/remover atividade, comentar | Pátio / inspector da atividade |
@@ -603,7 +796,7 @@ Base `/api` (header `Authorization: Bearer <JWT>`). Resposta padrão `{ data, is
 | Cliente | `GET /Cliente`, `POST`, `PUT /{id}`, `PATCH /{id}/status` |
 | Contrato | `GET /Contrato` |
 | Projeto | `GET /Projeto`, `GET /{id}` (marcos, equipe, links), `POST` |
-| Chamado | `GET`, `POST /interno`, `PATCH /{id}/status`, `PATCH /{id}/responsavel`, `POST /{id}/converter-atividade` |
+| Chamado | `GET`, `GET /{id}`, `POST /interno`, `PATCH /{id}/status`, `PATCH /{id}/responsavel`, `POST /{id}/converter-atividade`, `GET/POST /{id}/mensagens` |
 | Fatura | `GET`, `PATCH /{id}/pagar` |
 | Despesa | `GET` |
 | Wiki | `GET` |
@@ -619,6 +812,11 @@ Base `/api` (header `Authorization: Bearer <JWT>`). Resposta padrão `{ data, is
 - Validação (FluentValidation): razão social ≤ 200, CPF/CNPJ ≤ 20, assunto do chamado 3–150, descrição 10–4000,
   nome do projeto 3–200, previsão ≥ início, título da atividade ≤ 200, nome da zona ≤ 80.
 - Datas enviadas como `yyyy-mm-ddT00:00:00`.
+- A mensagem do chamado é **mão dupla**: a equipe escreve em `POST /Chamado/{id}/mensagens` e o cliente
+  no `/{id}/mensagens/externa` (autenticado por API key do sistema de origem). O conteúdo é HTML —
+  o texto digitado passa por `textToHtml`, e o que vem da API por `stripHtml` antes de virar balão.
+- `POST /Chamado/{id}/converter-atividade` aceita só `{ idProjeto, idColuna }`. O prazo entra depois,
+  por `PUT /Kanban/atividades/{id}` (ver §6.4).
 
 ---
 
@@ -628,7 +826,7 @@ Base `/api` (header `Authorization: Bearer <JWT>`). Resposta padrão `{ data, is
 |---|---|
 | `/` | Abrir busca |
 | `L` | Alternar cidade 3D ⇄ lista |
-| `Esc` | Fecha, em ordem: busca → painel do jogo → formulário → modo construção → seleção → pátio |
+| `Esc` | Fecha, em ordem: busca → painel do jogo → formulário → tela do celular → celular → modo construção → seleção → pátio |
 | `B` | Modo construção (no pátio: nova atividade) |
 | `G` | Painel do jogo |
 | `Q` / `E` | Girar 90° |
@@ -636,7 +834,10 @@ Base `/api` (header `Authorization: Bearer <JWT>`). Resposta padrão `{ data, is
 | `+` / `−` | Zoom |
 | `W A S D` / setas | Pan |
 
-Atalhos são ignorados enquanto se digita em campos ou com busca/formulário abertos.
+Atalhos são ignorados enquanto se digita em campos ou com busca/formulário abertos — **menos o `Esc`**,
+que é tratado antes dessa guarda. Por isso o campo de resposta do chat trata `Escape` por conta própria
+(desfoca e chama `stopPropagation`): sem isso, apertar `Esc` no meio de uma frase limparia a seleção da
+cidade.
 
 Mouse: esquerdo arrasta o mapa, direito gira, roda dá zoom, duplo clique num canteiro entra no pátio.
 
@@ -645,7 +846,7 @@ Mouse: esquerdo arrasta o mapa, direito gira, roda dá zoom, duplo clique num ca
 ## 15. Testes e qualidade
 
 ```bash
-npm test         # vitest — 38 testes
+npm test         # vitest — 92 testes
 npm run lint     # oxlint — zero avisos
 npx tsc -b       # tipos (app + configs + e2e)
 E2E_EMAIL=... E2E_PASSWORD=... npm run e2e   # Playwright — 6 testes
@@ -691,6 +892,22 @@ Em ambiente sem GPU o render por software roda a ~1 fps — use tempos de espera
   (`tones.ts`, `serverErrors.ts`, `crateColors.ts`, `origemColor.ts`).
 - Sem `Date.now()`/`Math.random()` durante o render — use `useNow()` ou estado inicial preguiçoso.
 - **`<Html>` do drei:** mantenha montado e alterne `visible`; use `labelsPortal`.
+- **Textura de canvas:** sempre `texture.colorSpace = SRGBColorSpace`. O `Canvas` usa `flat`
+  (NoToneMapping) e sem isso bytes já em sRGB são reencodados como lineares — o azul da marca (#134ced)
+  sai lavado.
+- **Texto 3D:** não use o `<Text>` do drei sem antes resolver a fonte (§9.7) — ele recusa `.woff2`, que
+  é o único formato que o projeto tem, e cai num CDN externo.
+- **`renderer.info` com pós-processamento:** o `autoReset` zera o contador a cada `render()`, e o
+  `EffectComposer` faz vários por quadro — ler direto dava "1 draw call". `PerfProbe` desliga o
+  `autoReset` e zera à mão uma vez por quadro.
+- **Mensagem é por chamado, não por cliente.** A "conversa com o cliente" do celular é a união das
+  threads dos chamados dele; responder exige escolher **qual** chamado recebe o `POST`. Por isso o campo
+  mostra o protocolo de destino, e sem chamado nenhum ele fica desabilitado.
+- **`PUT /Kanban/atividades/{id}` substitui o registro inteiro** — reenvie título, descrição, tipo,
+  prioridade e responsável junto com o campo que mudou.
+- **Flag de "primeira execução" em `useEffect` não funciona:** o `StrictMode` monta duas vezes em dev e
+  o `ref` sobrevive ao remonte simulado. Para reagir só a mudanças de verdade, **compare o valor
+  anterior** (`Phone.tsx` faz isso com o `focusNonce`).
 - **`PUT /Cliente`** sobrescreve `idSistemaOrigem` — sempre reenviar o valor atual.
 - **Mover atividade** exigiu correção no backend (conflito de tracking do EF em
   `KanbanDomainService.ReordenarAtividadesDaColuna`) — sem ela, o `PATCH` retorna 400.
@@ -772,6 +989,8 @@ forçado e um aviso explica o motivo.
 - Foco visível (`:focus-visible` com contorno da marca) só na navegação por teclado.
 - Busca, painel do jogo (`role=tablist/tab/tabpanel`), drawer de formulário e tour são `role=dialog` rotulados.
 - Barra de câmera é `role=toolbar`; toasts usam `aria-live`; chips de nível/saúde têm `aria-label` descritivo.
+- O celular é `role=region` rotulado; a barra de tarefas e as abas da listagem são `role=tablist/tab`.
+  Tudo nele é operado pelo teclado do computador — não existe teclado na tela.
 - Contraste: o cinza de texto secundário (`--color-ink-3`) passou de `#94a3b8` (2,6:1) para `#64748b` (4,8:1).
 
 ### Movimento reduzido
@@ -783,7 +1002,11 @@ posição; sem confete. O CSS também reduz as animações. Implementação: `sc
 
 ### Celular (< 768px)
 
-- Barra superior compacta (só ícones), sem KPIs, linha do tempo e tabela.
+- Barra superior compacta (só ícones), sem KPIs, linha do tempo e celular — o aparelho só existe a
+  partir de `lg` (≥ 1024px), onde há coluna lateral para ele (`useIsDesktop`). Os chamados continuam
+  acessíveis pelo inspector e pelo modo lista.
+- Os controles de câmera também só entram na barra a partir de `lg`; abaixo disso continuam na
+  barrinha vertical flutuante (§10.2).
 - **Inspector vira bottom sheet** (até 68% da altura, respeita a safe area).
 - Sem seleção, uma **barra de ações** ao alcance do polegar: Buscar, Lista/Cidade 3D, Jogo — e, no pátio,
   Cidade e + Atividade (substituem os atalhos de teclado).
@@ -800,12 +1023,17 @@ dá para rever pelo menu do usuário.
 
 Abra com `?perf` para ver fps, draw calls, triângulos, geometrias e texturas (`renderer.info`).
 
-| Métrica | Orçamento | Medido (5 clientes) |
+| Métrica | Orçamento | Medido (9 clientes, AO ligado) |
 |---|---|---|
-| Draw calls — cidade | ≤ 450 | 282 |
+| Draw calls — cidade | ≤ 450 | 231 (183 com as placas desligadas) |
 | Draw calls — pátio | ≤ 450 | 105 |
-| Triângulos | ≤ 250 mil | 59 mil (cidade) · 27 mil (pátio) |
+| Triângulos | ≤ 250 mil | 168 mil (cidade) · 27 mil (pátio) |
 
 Cada cliente soma ~50 draw calls (sede, canteiros e caminhões, contando a sombra). Perto de 15 clientes,
 instancie sedes e caminhões (`<Instances>`) antes de estourar o orçamento. Também ajudam: DPR adaptativo,
 AO só com folga de fps e o modo de movimento reduzido.
+
+As placas (§9.7) custam ~2 malhas cada, contadas duas vezes com o AO ligado (ele re-renderiza a cena).
+Se apertar, os postes dão um `<Instances>` em `City()` — as âncoras já saem do layout (`world/signs.ts`),
+então dá para hoistar sem refatorar o componente. O campo (§9.8) já é todo instanciado: ~210 plantas
+custam 4 draw calls, então crescer o bosque sai quase de graça (o custo é em triângulos).

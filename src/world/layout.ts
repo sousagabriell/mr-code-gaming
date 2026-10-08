@@ -94,9 +94,20 @@ export const LANDMARKS: LandmarkPlot[] = [
   { kind: 'prefeitura', position: [7.5, 0, LANDMARK_Z] },
 ];
 
+const OVERVIEW_TARGET: Vec3 = [0, 0, 0.5];
+/** Só a direção importa (ângulo isométrico da vista); o comprimento vem de `OVERVIEW_DISTANCE`. */
+const OVERVIEW_DIR: Vec3 = [17, 17, 18.5];
+/**
+ * Distância inicial ao centro da cidade: perto o bastante para ler as placas e ver a fileira cívica
+ * inteira. Fica entre `FOCUS_DISTANCE` (15) e o `maxDistance` do controle (48), então ainda dá para
+ * aproximar numa entidade e afastar para ver o campo.
+ */
+export const OVERVIEW_DISTANCE = 23;
+
+const dirLen = Math.hypot(OVERVIEW_DIR[0], OVERVIEW_DIR[1], OVERVIEW_DIR[2]);
 export const OVERVIEW_CAMERA: { position: Vec3; target: Vec3 } = {
-  position: [17, 17, 19],
-  target: [0, 0, 0.5],
+  position: OVERVIEW_DIR.map((c, i) => OVERVIEW_TARGET[i] + (c / dirLen) * OVERVIEW_DISTANCE) as Vec3,
+  target: OVERVIEW_TARGET,
 };
 
 const HQ_OFFSET: [number, number] = [-0.7, -0.3];

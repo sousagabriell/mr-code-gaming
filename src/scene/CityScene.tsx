@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { AdaptiveDpr, PerformanceMonitor } from '@react-three/drei';
 import { EffectComposer, N8AO } from '@react-three/postprocessing';
 import { BuildGhost } from './BuildGhost';
@@ -9,15 +9,18 @@ import { ClientBuilding } from './ClientBuilding';
 import { ConstructionSite } from './ConstructionSite';
 import { Ground } from './Ground';
 import { Landmark } from './Landmark';
+import { Outskirts } from './Outskirts';
 import { SelectionMarker } from './SelectionMarker';
 import { labelsPortal } from './labelsPortal';
 import { perfEnabled } from './perf';
 import { PRELOAD } from './assets';
 import { preloadModels } from './kenney';
 import { motion } from './motion';
+import { signView } from './signView';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { PerfProbe } from './PerfProbe';
 import { KanbanYard } from './yard/KanbanYard';
+import { BankBranch } from './bank/BankBranch';
 import { ChamadoTruck } from './vehicles/ChamadoTruck';
 import { EventVehicles } from './vehicles/EventVehicles';
 import { useCityEventDetector } from './vehicles/useCityEventDetector';
@@ -39,6 +42,18 @@ function selectionSize(kind: string): number {
   if (kind === 'projeto') return 1.3;
   if (kind === 'cliente' || kind === 'chamado' || kind === 'fatura') return 2;
   return 3;
+}
+
+/**
+ * Publica o zoom atual para as placas. Uma leitura só, do controle: medindo por placa elas apagariam
+ * uma a uma, em gradiente pela cidade, em vez de sumirem juntas quando o usuário se afasta.
+ */
+function SignViewUpdater() {
+  const controls = useUiStore((s) => s.controls);
+  useFrame(({ camera }) => {
+    signView.distance = controls?.distance ?? camera.position.length();
+  });
+  return null;
 }
 
 function City() {
@@ -63,6 +78,10 @@ function City() {
   return (
     <>
       <Ground layout={layout} buildMode={buildMode} />
+      <Suspense fallback={null}>
+        <Outskirts bounds={layout.bounds} />
+      </Suspense>
+      <SignViewUpdater />
 
       {/* Cada modelo tem sua própria fronteira: um download novo não esconde o resto da cidade. */}
       {layout.landmarks.map((l) => (
@@ -95,9 +114,10 @@ function City() {
   );
 }
 
-/** Luz, céu e câmera são comuns; o conteúdo alterna entre a cidade e o pátio de um projeto. */
+/** Luz, céu e câmera são comuns; o conteúdo alterna entre cidade, pátio de obras e agência. */
 function Scene() {
   const yard = useUiStore((s) => s.yard);
+  const banco = useUiStore((s) => s.banco);
   // O clima é a saúde da cidade (gamificação): sol, nublado, chuva ou tempestade.
   const { health } = useGame();
   const style = WEATHER_STYLE[health.weather];
@@ -129,8 +149,9 @@ function Scene() {
       />
 
       <CameraRig />
-      <Weather kind={health.weather} reduced={reduced} />
-      {yard ? <KanbanYard /> : <City />}
+      {/* O clima é da cidade: dentro da agência (interior) não chove. */}
+      {!banco && <Weather kind={health.weather} reduced={reduced} />}
+      {banco ? <BankBranch /> : yard ? <KanbanYard /> : <City />}
     </>
   );
 }

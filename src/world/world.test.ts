@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import type { ChamadoDTO, ClienteDTO, ContratoDTO, FaturaDTO, ProjetoDTO } from '../types/domain';
-import { buildCityLayout, frontRoadZ, LANE_OFFSET, lotPosition, LOT_COLUMNS, MAX_TRUCKS_PER_LOT, verticalRoadXs } from './layout';
+import {
+  buildCityLayout,
+  frontRoadZ,
+  LANE_OFFSET,
+  lotPosition,
+  LOT_COLUMNS,
+  MAX_TRUCKS_PER_LOT,
+  OVERVIEW_CAMERA,
+  OVERVIEW_DISTANCE,
+  verticalRoadXs,
+} from './layout';
 import { armoredRoute, pathLength, pointAt, walkerRoute } from './routes';
 import { chamadoLifecycle, faturaLifecycle } from './lifecycle';
 import { entityPosition } from './positions';
@@ -125,6 +135,25 @@ describe('layout estável', () => {
   });
 });
 
+describe('câmera de visão geral', () => {
+  const { position: p, target: t } = OVERVIEW_CAMERA;
+
+  it('começa exatamente em OVERVIEW_DISTANCE do alvo', () => {
+    expect(Math.hypot(p[0] - t[0], p[1] - t[1], p[2] - t[2])).toBeCloseTo(OVERVIEW_DISTANCE, 6);
+  });
+
+  it('mantém o ângulo isométrico dentro dos limites do controle (0,55..1,05 rad)', () => {
+    const polar = Math.acos((p[1] - t[1]) / OVERVIEW_DISTANCE);
+    expect(polar).toBeGreaterThan(0.55);
+    expect(polar).toBeLessThan(1.05);
+  });
+
+  it('olha a cidade de sudeste (x e z positivos)', () => {
+    expect(p[0]).toBeGreaterThan(t[0]);
+    expect(p[2]).toBeGreaterThan(t[2]);
+  });
+});
+
 describe('posição das entidades', () => {
   it('chamado aberto aponta para o caminhão; fechado, para a sede', () => {
     const chamados = [chamado(9, 2), chamado(10, 2, { status: 'Fechado' })];
@@ -198,6 +227,8 @@ describe('ciclo de vida', () => {
       dataVencimento: '2026-09-10T00:00:00Z',
       dataPagamento: null,
       status: 'Atrasado',
+      formaPagamento: null,
+      observacoes: null,
     };
     const steps = faturaLifecycle(f);
     expect(steps[1]).toMatchObject({ state: 'current', tone: 'bad', label: 'Atrasada' });

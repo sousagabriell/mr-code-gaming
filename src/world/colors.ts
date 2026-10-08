@@ -16,7 +16,8 @@ export const COLORS = {
   lot: '#e2e7f2',
   plaza: '#e7eaf4',
   road: '#d3d9e8',
-  roadLine: '#ffffff',
+  /** Campo em volta da cidade: verde suave, para não brigar com a maquete clara do miolo. */
+  field: '#d7e8c9',
   zoneLine: '#f2b84b',
   tree: '#7fcf8e',
   treeDark: '#5fb873',

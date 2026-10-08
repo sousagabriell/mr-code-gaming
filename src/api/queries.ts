@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import type { KanbanColunaDTO, ProjetoDTO } from '../types/domain';
+import type { ChamadoMensagemDTO, KanbanColunaDTO, ProjetoDTO } from '../types/domain';
 import { useAuthStore } from '../store/authStore';
 import { api } from './endpoints';
 import { qk } from './queryClient';
@@ -17,6 +17,10 @@ export const useNotificacoesQuery = () => useQuery({ queryKey: qk.notificacoes, 
 
 export const useObservabilidadeQuery = () =>
   useQuery({ queryKey: qk.observabilidade, queryFn: api.observabilidade.resumo });
+
+/** Resumo financeiro de um mês (`aaaa-MM`) — o cabeçalho do extrato da agência. */
+export const useFinanceiroResumoQuery = (mes: string) =>
+  useQuery({ queryKey: qk.financeiro(mes), queryFn: () => api.financeiro.resumo(mes) });
 
 /** GET /UsuarioAdmin exige perfil ADMIN — para STAFF a equipe simplesmente não é carregada. */
 export function useEquipeQuery() {
@@ -54,3 +58,26 @@ export function useAllKanbans(projetos: ProjetoDTO[]) {
 
 export const useChamadoDetalheQuery = (id: number | null) =>
   useQuery({ queryKey: qk.chamado(id ?? 0), queryFn: () => api.chamados.get(id!), enabled: id !== null });
+
+/** Threads carregadas por conversa; o resto do histórico fica no MrCodeAdmin. */
+export const MAX_THREADS_POR_CONVERSA = 20;
+
+// Referência estável: o TanStack só re-executa o combine quando algum resultado muda.
+const combineMensagens = (results: { data?: ChamadoMensagemDTO[]; isPending: boolean }[]) => ({
+  mensagens: results.flatMap((r) => r.data ?? []),
+  isLoading: results.some((r) => r.isPending),
+});
+
+/**
+ * A conversa de um cliente é a união das threads dos chamados dele — o backend guarda mensagem por
+ * chamado, não por cliente. Uma query por thread, compartilhando o cache com o detalhe do chamado.
+ */
+export function useMensagensDoCliente(idsChamado: number[]) {
+  return useQueries({
+    queries: idsChamado.slice(0, MAX_THREADS_POR_CONVERSA).map((id) => ({
+      queryKey: qk.mensagens(id),
+      queryFn: () => api.chamados.mensagens(id),
+    })),
+    combine: combineMensagens,
+  });
+}

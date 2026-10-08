@@ -9,7 +9,8 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const GLTF_TRANSFORM = path.join('node_modules', '.bin', 'gltf-transform');
+// Chama o entrypoint do CLI direto pelo node: o wrapper em .bin é .cmd no Windows e o execFile recusa (EINVAL).
+const GLTF_TRANSFORM = path.join('node_modules', '@gltf-transform', 'cli', 'bin', 'cli.js');
 
 const SRC = 'assets-src/kenney';
 const DEST = 'public/models';
@@ -31,18 +32,82 @@ const KITS = {
     dir: 'kenney_mini-characters',
     models: ['a', 'b', 'c', 'd', 'e', 'f'].flatMap((v) => [`character-male-${v}`, `character-female-${v}`]),
   },
+  // Kit industrial: só os prédios cívicos (o nome `building-a` colide com o kit comercial — por isso pasta própria).
+  industrial: { dir: 'kenney_city-kit-industrial_2.0', models: ['building-a', 'building-t', 'detail-tank-large'] },
+  // Ladrilhos 1×1 da malha viária; o resto do kit (placas, postes, pontes) não é usado.
+  roads: { dir: 'kenney_city-kit-roads', models: ['road-straight', 'road-crossroad', 'road-intersection', 'road-bend'] },
+  /**
+   * "3D Road Tiles": kit antigo, em .gltf e com nomes numerados. Daqui só sai a vegetação do campo em
+   * volta da cidade — o resto são pistas (já vêm do `roads`) e blocos de relevo, que isolados num plano
+   * liso viram lajes em vez de morro. O destino renomeia porque `roadTile_019` não diz nada; confira o
+   * número no `Preview.png` do kit antes de mexer.
+   */
+  nature: {
+    dir: 'kenney_3d-road-tiles',
+    sub: ['Models', 'gLTF'],
+    ext: 'gltf',
+    models: [
+      { from: 'roadTile_019', to: 'pine' },
+      { from: 'roadTile_020', to: 'bush' },
+    ],
+  },
+  /**
+   * Móveis da agência do Banco Central (interior). Este kit guarda os GLB em "GLTF format" — os
+   * outros usam "GLB format". O kit tem 140 peças; aqui só as que a agência monta.
+   */
+  furniture: {
+    dir: 'kenney_furniture-kit',
+    sub: ['Models', 'GLTF format'],
+    models: [
+      // casca da sala
+      'floorFull',
+      'wall',
+      'wallWindow',
+      'wallDoorway',
+      'rugRounded',
+      // balcão de atendimento
+      'kitchenBar',
+      'kitchenBarEnd',
+      'stoolBar',
+      // posto do caixa
+      'desk',
+      'chairDesk',
+      'computerScreen',
+      'computerKeyboard',
+      // cofre e malotes
+      'kitchenFridgeLarge',
+      'cardboardBoxClosed',
+      // espera
+      'loungeSofa',
+      'loungeChair',
+      'tableCoffee',
+      'pottedPlant',
+      // detalhes
+      'lampSquareCeiling',
+      'coatRackStanding',
+      'trashcan',
+      'books',
+    ],
+  },
 };
 
 for (const [name, kit] of Object.entries(KITS)) {
-  const from = path.join(SRC, kit.dir, 'Models', 'GLB format');
+  const from = path.join(SRC, kit.dir, ...(kit.sub ?? ['Models', 'GLB format']));
+  const ext = kit.ext ?? 'glb';
   const to = path.join(DEST, name);
+  // Os kits originais ficam fora do git: sem a pasta de origem, mantém o que já está em public/models.
+  if (!fs.existsSync(from)) {
+    console.log(`${name}: kit ausente em ${from} — mantido como está`);
+    continue;
+  }
   fs.rmSync(to, { recursive: true, force: true });
   fs.mkdirSync(to, { recursive: true });
-  for (const m of kit.models) {
+  for (const entry of kit.models) {
+    const { from: src, to: dest } = typeof entry === 'string' ? { from: entry, to: entry } : entry;
     // O GLB original referencia "Textures/colormap.png"; o optimize lê a textura e a embute no arquivo.
-    const args = ['optimize', path.join(from, `${m}.glb`), path.join(to, `${m}.glb`), '--compress', 'meshopt', '--texture-compress', 'false', '--simplify', 'false'];
+    const args = [GLTF_TRANSFORM, 'optimize', path.join(from, `${src}.${ext}`), path.join(to, `${dest}.glb`), '--compress', 'meshopt', '--texture-compress', 'false', '--simplify', 'false'];
     if (kit.keepNodes) args.push('--join', 'false', '--flatten', 'false');
-    execFileSync(GLTF_TRANSFORM, args, { stdio: 'ignore' });
+    execFileSync(process.execPath, args, { stdio: 'ignore' });
   }
   fs.copyFileSync(path.join(SRC, kit.dir, 'License.txt'), path.join(to, 'License.txt'));
   const kb = fs.readdirSync(to).filter((f) => f.endsWith('.glb')).reduce((s, f) => s + fs.statSync(path.join(to, f)).size, 0) / 1024;

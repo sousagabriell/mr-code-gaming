@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useConverterChamado } from '../../api/kanban';
 import { useKanbanQuery } from '../../api/queries';
 import { useWorld } from '../../hooks/useWorld';
+import { toDateInput } from '../../lib/format';
 import { useUiStore } from '../../store/uiStore';
+import { mensagemDePrazo, prazoInvalido } from '../../world/phone';
 import { projetoCode } from '../../world/status';
 import { Button } from '../ui';
 import { Field, inputClass } from './fields';
@@ -18,17 +20,21 @@ export function ConverterChamadoForm({ idChamado }: { idChamado: number }) {
   const candidatos = projetos.filter((p) => p.idCliente === chamado?.idCliente && p.status !== 'Cancelado' && p.status !== 'Concluido');
   const [idProjeto, setIdProjeto] = useState<number | null>(candidatos[0]?.idProjeto ?? null);
   const [idColuna, setIdColuna] = useState<string>('');
+  const [dataPrazo, setDataPrazo] = useState('');
+  const [hoje] = useState(() => toDateInput(new Date()));
   const { data: colunas } = useKanbanQuery(idProjeto);
   const ordenadas = [...(colunas ?? [])].sort((a, b) => a.ordem - b.ordem);
 
   if (!chamado) return null;
 
+  const erroPrazo = prazoInvalido(dataPrazo);
+
   function confirmar() {
-    if (!idProjeto) return;
+    if (!idProjeto || erroPrazo || !chamado) return;
     converter.mutate(
-      { idChamado, idProjeto, idColuna: idColuna ? Number(idColuna) : null },
+      { idChamado, idProjeto, idColuna: idColuna ? Number(idColuna) : null, dataPrazo, assunto: chamado.assunto },
       {
-        onSuccess: (atividade) => {
+        onSuccess: ({ atividade }) => {
           closeDrawer();
           // Leva direto ao pátio, com a caixa nova selecionada.
           enterYard(idProjeto, atividade?.idAtividade ? { kind: 'atividade', id: atividade.idAtividade } : undefined);
@@ -78,6 +84,25 @@ export function ConverterChamadoForm({ idChamado }: { idChamado: number }) {
                 ))}
               </select>
             </Field>
+            <Field
+              label="Prazo de atendimento"
+              required
+              error={dataPrazo ? (erroPrazo ?? undefined) : undefined}
+              hint={
+                dataPrazo
+                  ? `O cliente recebe no chat: “${mensagemDePrazo(chamado.assunto, dataPrazo)}”`
+                  : 'Sem prazo não dá para converter — é ele que vira o aviso no chat do cliente.'
+              }
+            >
+              <input
+                className={inputClass}
+                type="date"
+                value={dataPrazo}
+                min={hoje}
+                aria-invalid={!!dataPrazo && !!erroPrazo}
+                onChange={(e) => setDataPrazo(e.target.value)}
+              />
+            </Field>
           </>
         )}
       </div>
@@ -85,7 +110,7 @@ export function ConverterChamadoForm({ idChamado }: { idChamado: number }) {
         <Button type="button" variant="ghost" onClick={closeDrawer}>
           Cancelar
         </Button>
-        <Button variant="primary" disabled={!idProjeto || converter.isPending} onClick={confirmar}>
+        <Button variant="primary" disabled={!idProjeto || !!erroPrazo || converter.isPending} onClick={confirmar}>
           {converter.isPending ? 'Descarregando…' : 'Converter e ir ao pátio'}
         </Button>
       </div>

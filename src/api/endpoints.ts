@@ -4,8 +4,11 @@ import type {
   CadastroAtividadeDTO,
   CadastroChamadoInternoDTO,
   CadastroClienteDTO,
+  CadastroDespesaDTO,
+  CadastroFaturaDTO,
   CadastroProjetoDTO,
   ChamadoDTO,
+  ChamadoMensagemDTO,
   ChamadoStatus,
   ClienteDTO,
   ClienteStatus,
@@ -14,6 +17,7 @@ import type {
   DashboardResumoDTO,
   DespesaDTO,
   FaturaDTO,
+  FinanceiroResumoDTO,
   KanbanAtividadeDTO,
   KanbanColunaDTO,
   KanbanComentarioDTO,
@@ -50,13 +54,34 @@ export const api = {
       http.patch<ChamadoDTO>(`/Chamado/${id}/responsavel`, { idUsuarioAdmin }),
     converterEmAtividade: (id: number, idProjeto: number, idColuna: number | null) =>
       http.post<KanbanAtividadeDTO>(`/Chamado/${id}/converter-atividade`, { idProjeto, idColuna }),
+    /** Conversa do chamado — a mesma thread que o cliente vê no portal de origem. */
+    mensagens: (id: number) => http.get<ChamadoMensagemDTO[]>(`/Chamado/${id}/mensagens`),
+    enviarMensagem: (id: number, conteudoHtml: string) =>
+      http.post<ChamadoMensagemDTO>(`/Chamado/${id}/mensagens`, { conteudoHtml }),
   },
   faturas: {
     list: () => http.get<FaturaDTO[]>('/Fatura'),
+    get: (id: number) => http.get<FaturaDTO>(`/Fatura/${id}`),
+    criar: (dto: CadastroFaturaDTO) => http.post<FaturaDTO>('/Fatura', dto),
+    atualizar: (id: number, dto: CadastroFaturaDTO) => http.put<FaturaDTO>(`/Fatura/${id}`, dto),
     pagar: (id: number, formaPagamento?: string) => http.patch<FaturaDTO>(`/Fatura/${id}/pagar`, { formaPagamento }),
+    estornar: (id: number) => http.patch<FaturaDTO>(`/Fatura/${id}/estornar`, {}),
+    cancelar: (id: number) => http.patch<FaturaDTO>(`/Fatura/${id}/cancelar`, {}),
+    /** Gera as faturas do mês a partir dos contratos recorrentes; devolve só as criadas. */
+    gerarRecorrentes: () => http.post<FaturaDTO[]>('/Fatura/gerar-recorrentes', {}),
   },
   despesas: {
     list: () => http.get<DespesaDTO[]>('/Despesa'),
+    get: (id: number) => http.get<DespesaDTO>(`/Despesa/${id}`),
+    criar: (dto: CadastroDespesaDTO) => http.post<DespesaDTO>('/Despesa', dto),
+    atualizar: (id: number, dto: CadastroDespesaDTO) => http.put<DespesaDTO>(`/Despesa/${id}`, dto),
+    pagar: (id: number) => http.patch<DespesaDTO>(`/Despesa/${id}/pagar`, {}),
+    estornar: (id: number) => http.patch<DespesaDTO>(`/Despesa/${id}/estornar`, {}),
+    gerarRecorrentes: () => http.post<DespesaDTO[]>('/Despesa/gerar-recorrentes', {}),
+  },
+  financeiro: {
+    /** `mes` em `aaaa-MM`; sem ele o backend devolve o mês corrente. */
+    resumo: (mes?: string) => http.get<FinanceiroResumoDTO>(`/Financeiro/resumo${mes ? `?mes=${mes}` : ''}`),
   },
   wiki: {
     list: () => http.get<WikiPaginaDTO[]>('/Wiki'),
