@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { formatBRLCompact } from '../lib/format';
+import { useSedeStore } from '../store/sedeStore';
 import { LANDMARK_KINDS, useUiStore, type EntityRef, type LandmarkKind } from '../store/uiStore';
 import type { ChamadoDTO, FaturaDTO, ProjetoDTO } from '../types/domain';
 import { computeSaldo } from '../world/health';
@@ -41,6 +42,7 @@ export function useDistricts() {
   const selected = useUiStore((s) => s.selected);
   const yard = useUiStore((s) => s.yard);
   const interior = useUiStore((s) => s.interior);
+  const idClienteDaSede = useSedeStore((s) => s.idCliente);
 
   // A Prefeitura mostra metas, não contratos.
   const ativas = useMetasAtivas();
@@ -108,6 +110,16 @@ export function useDistricts() {
         target: { kind: 'universidade' },
       };
     }
+    if (interior === 'sede' && idClienteDaSede !== null) {
+      const cliente = world.clientes.find((c) => c.idCliente === idClienteDaSede);
+      return {
+        key: `sede:${idClienteDaSede}`,
+        code: clienteCode(idClienteDaSede),
+        nome: 'Escritório',
+        sub: cliente ? clienteNome(cliente) : 'escritório do cliente',
+        target: { kind: 'cliente', id: idClienteDaSede },
+      };
+    }
     if (yard) {
       const projeto = world.projetos.find((p) => p.idProjeto === yard);
       return {
@@ -124,7 +136,7 @@ export function useDistricts() {
     if (selected.kind === 'colaborador') return districts.find((d) => d.key === 'escritorio')!;
     const idCliente = contextClienteId(selected, world);
     return districts.find((d) => d.key === `cliente:${idCliente}`) ?? districts[0];
-  }, [selected, districts, world, yard, interior]);
+  }, [selected, districts, world, yard, interior, idClienteDaSede]);
 
   return { districts, current };
 }

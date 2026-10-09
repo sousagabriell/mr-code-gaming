@@ -72,6 +72,12 @@ export interface ProjetoDTO {
   prioridade: ProjetoPrioridade;
   observacoes: string | null;
   linkProducao: string | null;
+  loginProducao: string | null;
+  /**
+   * Só vem no GET /Projeto/{id}: o banco guarda a senha cifrada e o backend só a decifra no detalhe
+   * (`ProjetoService.MapParaDTO`) — na lista ela chega `null`.
+   */
+  senhaProducao: string | null;
   /** Só vêm preenchidos no GET /Projeto/{id}. */
   marcos: ProjetoMarcoDTO[];
   equipe: ProjetoEquipeDTO[];

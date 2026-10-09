@@ -15,6 +15,11 @@ import type { Vec3 } from './layout';
 
 /** Lado do ladrilho de chão (o kit desenha os móveis numa grade de 1×1). */
 export const TILE = 1;
+/**
+ * Espessura do ladrilho `floorFull` do kit: o piso de verdade fica em y = 0,05. Móvel apoiado em
+ * y = 0 afunda 5 cm sem ninguém notar, mas um tapete (1 cm) some inteiro dentro do ladrilho.
+ */
+export const PISO_Y = 0.05;
 
 /**
  * As paredes **não** vêm do kit. Os três modelos (`wall`, `wallWindow`, `wallDoorway`) têm recortes

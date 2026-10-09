@@ -1,4 +1,4 @@
-import { Construction, Flag, Warehouse } from 'lucide-react';
+import { Briefcase, Construction, Flag, Warehouse } from 'lucide-react';
 import { useKanbanQuery, useProjetoDetalheQuery } from '../../api/queries';
 import { useWorld } from '../../hooks/useWorld';
 import { formatDate } from '../../lib/format';
@@ -14,6 +14,7 @@ export function ProjetoInspector({ id }: { id: number }) {
   const { projetos } = useWorld();
   const select = useUiStore((s) => s.select);
   const enterYard = useUiStore((s) => s.enterYard);
+  const enterSede = useUiStore((s) => s.enterSede);
   const { data: detalhe } = useProjetoDetalheQuery(id);
   const { data: colunas, isPending: kanbanPending } = useKanbanQuery(id);
 
@@ -41,9 +42,15 @@ export function ProjetoInspector({ id }: { id: number }) {
       }
       adminPath={`/projetos/${id}/atividades`}
       footer={
-        <Button variant="primary" onClick={() => enterYard(id)}>
-          <Warehouse className="h-3.5 w-3.5" /> Entrar no pátio de obras
-        </Button>
+        <>
+          <Button variant="primary" onClick={() => enterYard(id)}>
+            <Warehouse className="h-3.5 w-3.5" /> Entrar no pátio de obras
+          </Button>
+          {/* Acesso de produção, links e marcos completos ficam no escritório do cliente. */}
+          <Button variant="secondary" onClick={() => enterSede(projeto.idCliente, id)}>
+            <Briefcase className="h-3.5 w-3.5" /> Ver no escritório
+          </Button>
+        </>
       }
     >
       <StatusLine>

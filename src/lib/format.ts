@@ -16,6 +16,11 @@ export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR');
 }
 
+/** "25 de outubro de 2024" — o formato da tela de projeto do portal. */
+export function formatDateLong(iso: string): string {
+  return new Date(iso).toLocaleDateString('pt-BR', { dateStyle: 'long' });
+}
+
 export function formatDateShort(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }

@@ -25,6 +25,7 @@ const INACTIVE_TINT = '#b8bfcc';
 export function ClientBuilding({ plot }: { plot: ClientPlot }) {
   const groupRef = useRef<Group>(null);
   const select = useUiStore((s) => s.select);
+  const enterSede = useUiStore((s) => s.enterSede);
   const isSelected = useUiStore((s) => s.selected?.kind === 'cliente' && s.selected.id === plot.cliente.idCliente);
   const { hovered, bind } = useHover();
 
@@ -62,6 +63,11 @@ export function ClientBuilding({ plot }: { plot: ClientPlot }) {
     e.stopPropagation();
     select({ kind: 'cliente', id: plot.cliente.idCliente });
   };
+  // Duplo clique entra no escritório, como no canteiro entra no pátio.
+  const entrar = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    enterSede(plot.cliente.idCliente);
+  };
 
   return (
     <>
@@ -71,7 +77,7 @@ export function ClientBuilding({ plot }: { plot: ClientPlot }) {
           <meshStandardMaterial color={status} roughness={0.7} />
         </RoundedBox>
 
-        <group ref={groupRef} position={[0, 0.08, 0]} onClick={pick} {...bind}>
+        <group ref={groupRef} position={[0, 0.08, 0]} onClick={pick} onDoubleClick={entrar} {...bind}>
           <primitive object={root} />
         </group>
 

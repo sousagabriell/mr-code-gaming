@@ -7,6 +7,7 @@ import { FormDrawer } from './hud/FormDrawer';
 import { Inspector } from './hud/inspector/Inspector';
 import { KpiCards } from './hud/KpiCards';
 import { SearchPalette } from './hud/SearchPalette';
+import { EscritorioPanel } from './hud/sede/EscritorioPanel';
 import { TimelineTray } from './hud/TimelineTray';
 import { Toasts } from './hud/Toasts';
 import { TopBar } from './hud/TopBar';
@@ -60,6 +61,7 @@ export default function Game() {
   const interior = useUiStore((s) => s.interior);
   const banco = interior === 'banco';
   const biblioteca = interior === 'universidade';
+  const sede = interior === 'sede';
   const selected = useUiStore((s) => s.selected);
   const lista = usePrefsStore((s) => s.viewMode) === 'lista';
   const isMobile = useIsMobile();
@@ -118,6 +120,10 @@ export default function Game() {
               <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-30">
                 <WikiPanel />
               </div>
+            ) : sede ? (
+              <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-30">
+                <EscritorioPanel />
+              </div>
             ) : selected ? (
               <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-30">
                 <Inspector sheet />
@@ -140,7 +146,7 @@ export default function Game() {
                 <CameraToolbar />
               </div>
             )}
-            {/* Na agência o detalhe é um painel ao lado do extrato; a biblioteca usa a coluna inteira. */}
+            {/* Na agência o detalhe é um painel ao lado do extrato; biblioteca e escritório usam a coluna inteira. */}
             {banco && detalheAoLado && (
               <div className="pointer-events-auto flex max-h-full w-[360px]">
                 <BankDetail />
@@ -151,6 +157,8 @@ export default function Game() {
                 <BankPanel detalheEmbutido={!detalheAoLado} />
               ) : biblioteca ? (
                 <WikiPanel />
+              ) : sede ? (
+                <EscritorioPanel />
               ) : (
                 <Inspector />
               )}
@@ -163,10 +171,11 @@ export default function Game() {
             {/*
               Na cidade o celular fica à **esquerda** e a linha do tempo à direita: o aparelho aberto
               deixava de cobrir a cena e passava a disputar a coluna do inspector. No pátio e nos
-              interiores não há celular, e a barra de lá fica onde o celular estaria.
+              interiores não há celular, e a barra de lá fica onde o celular estaria. O escritório do
+              cliente ainda não tem barra: por ora é a sala e o painel.
             */}
             {!yard && !interior && <Phone />}
-            {(yard || interior) && (
+            {(yard || banco || biblioteca) && (
               <div
                 className={`pointer-events-auto absolute bottom-4 left-4 hidden lg:block ${
                   interior ? 'w-[min(760px,calc(100vw-728px))]' : 'w-[min(760px,calc(100vw-424px))]'

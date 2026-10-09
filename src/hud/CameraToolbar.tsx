@@ -1,8 +1,12 @@
 import { Hammer, Home, Minus, Plus, RotateCcw, RotateCw } from 'lucide-react';
 import { useUiStore } from '../store/uiStore';
+import type { InteriorKind } from '../world/interiors';
 import { goHome, rotateQuarter, zoomStep } from './camera';
 import { cx } from './tones';
 import { Glass, IconButton } from './ui';
+
+/** Como o botão ⌂ chama cada interior ("Enquadrar a agência"). */
+const CASA: Record<InteriorKind, string> = { banco: 'a agência', universidade: 'a biblioteca', sede: 'o escritório' };
 
 /**
  * Zoom, giro, visão geral e construção. `horizontal` é a versão que mora na barra superior
@@ -16,7 +20,7 @@ export function CameraToolbar({ horizontal = false }: { horizontal?: boolean }) 
   const yard = useUiStore((s) => s.yard);
   const interior = useUiStore((s) => s.interior);
   const openDrawer = useUiStore((s) => s.openDrawer);
-  const casa = interior === 'banco' ? 'a agência' : interior === 'universidade' ? 'a biblioteca' : null;
+  const casa = interior ? CASA[interior] : null;
 
   const separador = horizontal ? 'mx-0.5 h-5 w-px bg-line' : 'my-0.5 h-px w-5 bg-line';
 

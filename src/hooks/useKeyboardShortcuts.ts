@@ -4,6 +4,7 @@ import { useBankStore } from '../store/bankStore';
 import { useGameStore } from '../store/gameStore';
 import { usePhoneStore } from '../store/phoneStore';
 import { usePrefsStore } from '../store/prefsStore';
+import { useSedeStore } from '../store/sedeStore';
 import { useUiStore } from '../store/uiStore';
 import { useWikiStore } from '../store/wikiStore';
 import type { InteriorKind } from '../world/interiors';
@@ -14,8 +15,8 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 /** Cada interior tem seu painel, e cada painel sabe voltar um degrau antes de o Esc sair do cenário. */
-const painelDoInterior = (kind: InteriorKind) =>
-  kind === 'banco' ? useBankStore.getState() : useWikiStore.getState();
+const painelDoInterior = (kind: InteriorKind): { voltar: () => boolean } =>
+  kind === 'banco' ? useBankStore.getState() : kind === 'universidade' ? useWikiStore.getState() : useSedeStore.getState();
 
 const PAN = 2;
 

@@ -1,7 +1,8 @@
 import type { CameraControlsImpl } from '@react-three/drei';
 import { create } from 'zustand';
-import { isInteriorKind, type InteriorKind } from '../world/interiors';
+import { interiorParam, lerInterior, type InteriorAberto, type InteriorKind } from '../world/interiors';
 import { useBankStore } from './bankStore';
+import { useSedeStore } from './sedeStore';
 import { useWikiStore } from './wikiStore';
 
 export type LandmarkKind = 'datacenter' | 'banco' | 'universidade' | 'prefeitura' | 'escritorio';
@@ -9,10 +10,10 @@ export type LandmarkKind = 'datacenter' | 'banco' | 'universidade' | 'prefeitura
 export const LANDMARK_KINDS: LandmarkKind[] = ['datacenter', 'banco', 'universidade', 'prefeitura', 'escritorio'];
 
 /**
- * Cenários internos de landmark (agência do BC, biblioteca da UN) — ver `world/interiors.ts`. É
- * **um campo** em vez de uma flag por cenário porque todos se excluem entre si (e com o `yard`):
- * com flags separadas, cada `enter*` teria de zerar as outras e o terceiro cenário multiplicaria o
- * erro.
+ * Cenários internos (agência do BC, biblioteca da UN, escritório do cliente) — ver
+ * `world/interiors.ts`. É **um campo** em vez de uma flag por cenário porque todos se excluem entre
+ * si (e com o `yard`): com flags separadas, cada `enter*` teria de zerar as outras e o terceiro
+ * cenário multiplicaria o erro.
  */
 export type { InteriorKind };
 
@@ -72,11 +73,14 @@ interface UiState {
   exitYard: (focusProject?: boolean) => void;
 
   /**
-   * Interior de landmark aberto (agência do BC, biblioteca da UN) — ou null na cidade. **Excludente**
-   * com o `yard`: entrar num fecha o outro.
+   * Interior aberto (agência do BC, biblioteca da UN, escritório do cliente) — ou null na cidade.
+   * **Excludente** com o `yard`: entrar num fecha o outro.
    */
   interior: InteriorKind | null;
-  enterInterior: (kind: InteriorKind) => void;
+  /** Interiores de landmark. O escritório tem dono e entra por `enterSede`. */
+  enterInterior: (kind: Exclude<InteriorKind, 'sede'>) => void;
+  /** Escritório do cliente; `idProjeto` já abre o painel naquele projeto (vindo do inspector dele). */
+  enterSede: (idCliente: number, idProjeto?: number) => void;
   /** selectLandmark=false volta sem selecionar a sede (ex.: ir para a visão geral). */
   exitInterior: (selectLandmark?: boolean) => void;
 
@@ -129,17 +133,36 @@ function readYardFromUrl(): number | null {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
-/** `?interior=banco` abre direto no cenário — mas o pátio tem precedência se a URL trouxer os dois. */
-function readInteriorFromUrl(): InteriorKind | null {
+/**
+ * `?interior=banco` (ou `sede:3`) abre direto no cenário — mas o pátio tem precedência se a URL
+ * trouxer os dois.
+ */
+function readInteriorFromUrl(): InteriorAberto | null {
   if (readYardFromUrl() !== null) return null;
-  const value = readUrl('interior');
-  return isInteriorKind(value) ? value : null;
+  return lerInterior(readUrl('interior'));
 }
 
 /** Cada cenário interno tem um painel com estado próprio; sair zera o painel de onde se saiu. */
 function limparPainelDoInterior(kind: InteriorKind) {
   if (kind === 'banco') useBankStore.getState().limpar();
-  else useWikiStore.getState().limpar();
+  else if (kind === 'universidade') useWikiStore.getState().limpar();
+  else useSedeStore.getState().limpar();
+}
+
+/**
+ * Para onde a câmera volta ao sair: a sede de onde se saiu (o landmark, ou a sede do cliente). Sem
+ * dono (o painel o esquece quando o cliente do link não existe mais), sai sem selecionar.
+ */
+function sedeDeOrigem(kind: InteriorKind): EntityRef | null {
+  if (kind !== 'sede') return { kind };
+  const { idCliente } = useSedeStore.getState();
+  return idCliente === null ? null : { kind: 'cliente', id: idCliente };
+}
+
+// Recarregar com `?interior=sede:3` já abre o escritório do cliente 3: o dono da sala vem da URL.
+const interiorInicial = readInteriorFromUrl();
+if (interiorInicial?.kind === 'sede' && interiorInicial.idCliente !== null) {
+  useSedeStore.getState().abrir(interiorInicial.idCliente);
 }
 
 function readSelFromUrl(): EntityRef | null {
@@ -147,6 +170,15 @@ function readSelFromUrl(): EntityRef | null {
   // Atividade só faz sentido dentro de um pátio.
   if (sel?.kind === 'atividade' && !readYardFromUrl()) return null;
   return sel;
+}
+
+/** Entrada comum dos interiores. Quem chama já deixou o painel do cenário pronto. */
+function abrirInterior(kind: InteriorKind, param: string) {
+  writeUrl('interior', param);
+  writeUrl('yard', null);
+  // Dentro do cenário não há entidade selecionada: o painel do interior ocupa a coluna da direita.
+  writeSelToUrl(null);
+  useUiStore.setState((s) => ({ interior: kind, yard: null, selected: null, focusNonce: s.focusNonce + 1, buildMode: false, drawer: null }));
 }
 
 export const useUiStore = create<UiState>((set) => ({
@@ -196,6 +228,9 @@ export const useUiStore = create<UiState>((set) => ({
 
   yard: readYardFromUrl(),
   enterYard: (idProjeto, then) => {
+    // O escritório do cliente tem botão para o pátio: o painel de lá não pode ficar aberto por trás.
+    const { interior } = useUiStore.getState();
+    if (interior) limparPainelDoInterior(interior);
     writeUrl('yard', String(idProjeto));
     writeUrl('interior', null);
     writeSelToUrl(then ?? null);
@@ -217,21 +252,26 @@ export const useUiStore = create<UiState>((set) => ({
     set((s) => ({ yard: null, selected: back, focusNonce: s.focusNonce + 1, drawer: null }));
   },
 
-  interior: readInteriorFromUrl(),
+  interior: interiorInicial?.kind ?? null,
   enterInterior: (kind) => {
-    writeUrl('interior', kind);
-    writeUrl('yard', null);
-    // Dentro do cenário não há entidade selecionada: o painel do interior ocupa a coluna da direita.
-    writeSelToUrl(null);
-    set((s) => ({ interior: kind, yard: null, selected: null, focusNonce: s.focusNonce + 1, buildMode: false, drawer: null }));
+    const { interior } = useUiStore.getState();
+    if (interior && interior !== kind) limparPainelDoInterior(interior);
+    abrirInterior(kind, interiorParam(kind));
+  },
+  enterSede: (idCliente, idProjeto) => {
+    const { interior } = useUiStore.getState();
+    if (interior && interior !== 'sede') limparPainelDoInterior(interior);
+    // `abrir` substitui o dono: entrar no escritório de outro cliente não herda o projeto em foco.
+    useSedeStore.getState().abrir(idCliente, idProjeto ?? null);
+    abrirInterior('sede', interiorParam('sede', idCliente));
   },
   exitInterior: (selectLandmark = true) => {
     const { interior } = useUiStore.getState();
     writeUrl('interior', null);
-    // Volta para a cidade com a sede de onde saiu selecionada.
-    const back: EntityRef | null = interior && selectLandmark ? { kind: interior } : null;
+    // Volta para a cidade com a sede de onde saiu selecionada — lida antes de o painel ser limpo.
+    const back: EntityRef | null = interior && selectLandmark ? sedeDeOrigem(interior) : null;
     writeSelToUrl(back);
-    // O painel recomeça limpo na próxima visita (mês corrente / nenhum livro aberto).
+    // O painel recomeça limpo na próxima visita (mês corrente / nenhum livro aberto / nenhum dono).
     if (interior) limparPainelDoInterior(interior);
     set((s) => ({ interior: null, selected: back, focusNonce: s.focusNonce + 1, drawer: null }));
   },

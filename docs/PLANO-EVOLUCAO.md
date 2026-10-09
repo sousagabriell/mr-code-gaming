@@ -129,7 +129,8 @@
 
 > **O que de fato foi construído** (ver MANUAL-TECNICO §9): a fileira cívica tem **cinco** prédios —
 > Data Center, Banco Central, Universidade, Prefeitura e Escritório —, e três deles abrem cenário
-> próprio: o **pátio de obras** (projeto), a **agência** do BC e a **biblioteca** da UN.
+> próprio: o **pátio de obras** (projeto), a **agência** do BC e a **biblioteca** da UN. A sede de
+> cada cliente também abre o seu: o **escritório do cliente**.
 
 ---
 
@@ -314,6 +315,11 @@ Cuidados: XP nunca deve incentivar ação errada (ex.: fechar chamado sem resolv
       cadastrar, editar, dar prazo e recompensa, para a cidade ou para uma pessoa. A meta cumprida
       vale XP de bônus e deixa um selo. Metas e bônus ficam no navegador, por usuário
       (MANUAL-TECNICO §10.5, §12 e §17)
+- [x] **Escritório do cliente**: entrar na sede de um cliente abre o quinto cenário — uma sala
+      pequena, com a mesa de atendimento e a placa do cliente na parede, e no painel da direita a
+      tela de projeto do portal (detalhes, acesso de produção, links, marcos e equipe), com abas
+      quando o cliente tem mais de um projeto. Por ora é leitura; a sala ainda não tem animação nem
+      barra inferior (MANUAL-TECNICO §8.12, §9.12 e §10.6)
 - [ ] Deploy automático (incluir no `cd.yml` do MrCodeAdmin? — decisão de infraestrutura)
 
 ---

@@ -1,4 +1,4 @@
-import { Building2, Pencil, Plus, Power } from 'lucide-react';
+import { Briefcase, Building2, Pencil, Plus, Power } from 'lucide-react';
 import { useAlterarStatusCliente } from '../../api/mutations';
 import { useWorld } from '../../hooks/useWorld';
 import { formatBRL, formatDate } from '../../lib/format';
@@ -12,6 +12,7 @@ export function ClienteInspector({ id }: { id: number }) {
   const world = useWorld();
   const select = useUiStore((s) => s.select);
   const openDrawer = useUiStore((s) => s.openDrawer);
+  const enterSede = useUiStore((s) => s.enterSede);
   const alterarStatus = useAlterarStatusCliente();
 
   const cliente = world.clientes.find((c) => c.idCliente === id);
@@ -33,6 +34,9 @@ export function ClienteInspector({ id }: { id: number }) {
       adminPath={`/clientes/${id}`}
       footer={
         <>
+          <Button variant="primary" onClick={() => enterSede(id)}>
+            <Briefcase className="h-3.5 w-3.5" /> Entrar no escritório
+          </Button>
           <Button variant="secondary" onClick={() => openDrawer({ form: 'editar-cliente', idCliente: id })}>
             <Pencil className="h-3.5 w-3.5" /> Editar
           </Button>

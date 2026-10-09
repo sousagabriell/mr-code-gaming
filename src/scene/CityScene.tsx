@@ -21,6 +21,7 @@ import { useReducedMotion } from '../hooks/useReducedMotion';
 import { PerfProbe } from './PerfProbe';
 import { KanbanYard } from './yard/KanbanYard';
 import { BankBranch } from './bank/BankBranch';
+import { EscritorioCliente } from './sede/EscritorioCliente';
 import { Library } from './universidade/Library';
 import { ChamadoTruck } from './vehicles/ChamadoTruck';
 import { EventVehicles } from './vehicles/EventVehicles';
@@ -171,6 +172,8 @@ function Scene() {
         <BankBranch />
       ) : interior === 'universidade' ? (
         <Library />
+      ) : interior === 'sede' ? (
+        <EscritorioCliente />
       ) : yard ? (
         <KanbanYard />
       ) : (

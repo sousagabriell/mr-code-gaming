@@ -47,7 +47,7 @@ criar, editar e mover registros pela própria cena.
 
 | Entidade do MrCodeAdmin | Representação |
 |---|---|
-| Cliente | Lote com **sede**; telhado colorido pelo status do contrato |
+| Cliente | Lote com **sede**; telhado colorido pelo status do contrato; entrar nela abre o **escritório do cliente** |
 | Projeto | **Canteiro de obras** no lote (vira anexo inaugurado quando concluído); entrar nele abre o **pátio de obras** |
 | Atividade (Kanban) | **Caixa** num palete dentro do pátio; cada coluna é uma **zona** |
 | Chamado | **Caminhão** na porta do cliente (chega, descarrega, vai embora) |
@@ -133,7 +133,7 @@ A URL é o estado de navegação (§7), e algumas chaves a mais existem para des
 |---|---|---|
 | `?sel=cliente:3` | Abre com a entidade selecionada (`cliente`, `projeto`, `chamado`, `fatura`, `colaborador`, `atividade` ou um landmark) | sempre |
 | `?yard=3` | Abre direto no pátio de obras do projeto 3 | sempre |
-| `?interior=banco` · `?interior=universidade` | Abre direto no cenário interno | sempre |
+| `?interior=banco` · `?interior=universidade` · `?interior=sede:3` | Abre direto no cenário interno (o escritório leva o id do cliente) | sempre |
 | `?perf` | Medidor de fps, draw calls e triângulos (§20) | sempre |
 | `?mock=wiki` | Força o acervo de exemplo da biblioteca mesmo havendo wiki de verdade (§10.4) | **só em dev** |
 
@@ -244,6 +244,7 @@ src/
 │   ├── bankStore.ts         # Agência: mês, aba, tela do detalhe, seleção e filtros do extrato
 │   ├── metasStore.ts        # Metas da Prefeitura e o registro do que já foi batido (localStorage)
 │   ├── wikiStore.ts         # Biblioteca: artigo aberto e busca (compartilhados com a estante 3D)
+│   ├── sedeStore.ts         # Escritório do cliente: de quem é a sala e o projeto em foco
 │   └── tourStore.ts         # Tour guiado (passo atual, "já visto" por usuário)
 │
 ├── hooks/
@@ -276,9 +277,10 @@ src/
 │   ├── phone.ts             # Celular: abas, filtros, conversas, blocos do chat, prazo
 │   ├── extrato.ts           # Agência: mês, recorte, filtros, agrupamento por dia, totais, grade do ano
 │   ├── interior.ts          # Casca comum dos cenários internos: sala, paredes, rodapé, câmera
-│   ├── interiors.ts         # Registro dos interiores (tipo, câmera e limites de cada um)
+│   ├── interiors.ts         # Registro dos interiores (tipo, câmera, limites) e o `?interior=` da URL
 │   ├── bank.ts              # Planta baixa da agência, caminhos do malote, âncora do calendário, câmera
 │   ├── universidade.ts      # Biblioteca: estante, artigos, lombadas, mesa e trajeto do leitor, câmera
+│   ├── sede.ts              # Escritório do cliente: planta, placa, câmera e as regras do painel
 │   ├── text.ts              # `norm` (busca sem acento/caixa)
 │   └── colors.ts            # Paleta 3D
 │
@@ -302,7 +304,8 @@ src/
 │   ├── CoinBurst.tsx        # Estouro de moedas (carro-forte na cidade, cofre na agência)
 │   ├── interior/            # Casca compartilhada dos interiores: lajes, mobília do kit, sala
 │   ├── bank/                # Interior da agência: sala, calendário de parede e animações
-│   └── universidade/        # Interior da biblioteca: estante, lombadas clicáveis, etiquetas, leitor
+│   ├── universidade/        # Interior da biblioteca: estante, lombadas clicáveis, etiquetas, leitor
+│   └── sede/                # Interior do escritório do cliente: a sala e a placa com o nome dele
 │
 ├── hud/                     # Componentes DOM
 │   ├── TopBar · DistrictSelector · NotificationBell · SearchPalette
@@ -311,6 +314,7 @@ src/
 │   ├── phone/               # Celular do atendimento: aparelho, app, telas de chamados e chat
 │   ├── bank/                # Agência: extrato, detalhe do lançamento, navegador de mês, barra inferior
 │   ├── wiki/                # Biblioteca: índice das prateleiras, artigo e barra inferior
+│   ├── sede/                # Escritório do cliente: o projeto como no portal (somente leitura)
 │   ├── inspector/           # Inspector + um por tipo de entidade (incl. Atividade)
 │   ├── forms/               # Cliente, Projeto, Chamado, Atividade, Coluna, ConverterChamado, Fatura, Despesa, Meta
 │   ├── yard/                # YardPanel, YardTable
@@ -423,7 +427,7 @@ resumo): estornar um pagamento muda o mês em que o valor conta, não só o mês
 | `buildMode` | Fantasma de sede no próximo lote livre |
 | `drawer` | Formulário aberto (`DrawerState`) |
 | `yard` | Id do projeto cujo pátio está aberto; `null` = cidade |
-| `interior` | Cenário interno aberto (`'banco'` \| `'universidade'`); `null` = cidade. Excludente com o `yard` |
+| `interior` | Cenário interno aberto (`'banco'` \| `'universidade'` \| `'sede'`); `null` = cidade. Excludente com o `yard`. O dono do escritório (`sede`) mora no `sedeStore` |
 | `dragging` | Uma caixa segura o ponteiro (câmera travada) |
 | `searchOpen` | Paleta de busca |
 
@@ -431,7 +435,7 @@ Preferências persistentes ficam em `prefsStore`: `viewMode` (`3d`/`lista`, chav
 `reduceMotion` (`mrcode-city:reduce-motion`). Sem WebGL, `viewMode` é forçado para `lista`.
 
 **Sincronização com a URL** (`history.replaceState`): `?sel=cliente:3`, `?yard=3` e
-`?interior=universidade`. Permite link direto e recarregar sem perder o foco. `select()` estando no
+`?interior=universidade` (ou `?interior=sede:3`, o escritório do cliente 3). Permite link direto e recarregar sem perder o foco. `select()` estando no
 pátio ou num interior sai dele (exceto `atividade`, que só existe dentro do pátio).
 
 **Por que `interior` é um campo e não uma flag por cenário.** Os cenários internos se excluem entre si
@@ -447,7 +451,7 @@ linha em `world/interiors.ts` (`INTERIOR_CAMERA`, `INTERIOR_BOUNDS`) e um ramo n
   (`mrcode-city:game:<id>` → `{achievements, level, xp}`). Todo acesso a storage é protegido por `try/catch`.
 - `toastStore` — tons `ok | bad | info | xp`; some em 4 s (6 s para erro); máximo de 4 empilhados.
 - `cityEvents` — fila de animações (`truck-leave`, `armored`, `malote`, `extrato-ping`, `wiki-memo`)
-  e a flag `ready`. Uma fila para os quatro cenários: cada um renderiza os tipos que conhece.
+  e a flag `ready`. Uma fila para todos os cenários: cada um renderiza os tipos que conhece.
 - `bankStore` — agência: mês (compartilhado com o calendário 3D da parede), aba, tela do painel da
   esquerda, lançamento selecionado e filtros. `limpar()` roda ao sair do cenário, para a próxima
   visita recomeçar no mês corrente.
@@ -455,6 +459,10 @@ linha em `world/interiors.ts` (`INTERIOR_CAMERA`, `INTERIOR_BOUNDS`) e um ramo n
   disputam os mesmos valores — a **estante 3D** (quais lombadas aparecem, qual está puxada) e o painel
   da direita. `voltar()` fecha o artigo e devolve `false` quando já estava na estante, que é o que o
   `Esc` usa para decidir se sai do cenário.
+- `sedeStore` — escritório do cliente: de quem é a sala (`idCliente`, que também vai na URL) e o
+  projeto em foco no painel. Fora do painel pela mesma razão do `wikiStore`: a placa da parede e o
+  painel leem o mesmo dono. Quem abre e fecha é o `uiStore` (`enterSede`, `exitInterior`), dono da
+  URL. `voltar()` devolve sempre `false` — o painel ainda é uma tela só, e o `Esc` sai direto.
 - `metasStore` — metas da Prefeitura e o registro do que já foi batido, em
   `mrcode-city:metas:<idUsuario>`. **Chave separada da do `gameStore`** de propósito: aquela é
   reescrita a cada tique assentado do jogo, com estado derivado; meta é conteúdo que o usuário
@@ -529,12 +537,13 @@ fatura → sede do cliente; landmarks → posição fixa. Entidades móveis são
 
 ### 8.6 Interiores (`interior.ts`, `interiors.ts`)
 
-A agência do BC e a biblioteca da UN têm a mesma casca: uma sala pequena de ladrilhos 1×1, **duas**
+A agência do BC, a biblioteca da UN e o escritório do cliente têm a mesma casca: uma sala pequena de ladrilhos 1×1, **duas**
 paredes lisas (fundo e esquerda — as da frente tapariam a cena), rodapé e móveis do kit da Kenney em
 escala natural. `interior.ts` guarda isso parametrizado por `Sala { cols, rows }`: `tileCenter`,
 `colX`/`rowZ`, `wallSlabs`, `baseboardSlabs`, `floorTiles`, `roomBounds` e `interiorCamera`
 (direção × distância). `interiors.ts` é o registro — o tipo `InteriorKind` nasce ali (e não no
 `uiStore`, para `world/` seguir sem depender do estado) junto de `INTERIOR_CAMERA` e `INTERIOR_BOUNDS`.
+`PISO_Y` é a espessura do ladrilho do kit (5 cm) — ver a armadilha em §16.
 
 ### 8.7 Agência (`extrato.ts`, `bank.ts`)
 
@@ -602,6 +611,23 @@ sem nada acusar. Hoje o teste cruza `LANDMARKS` × `DECOR_SPOTS` e falha.
   passado, e `formatarPrazo` monta `dd/mm/aaaa` sem passar por `Date` (que leria `yyyy-mm-dd` como UTC
   e viraria o dia).
 
+### 8.12 Escritório do cliente (`sede.ts`)
+
+O único interior que não é de landmark: existe um por cliente. Por isso o `?interior=` deixou de ser
+só o nome do cenário — `lerInterior` e `interiorParam` (em `interiors.ts`) leem e escrevem
+`sede:<idCliente>`, e escritório sem id válido não abre.
+
+- **Planta.** A menor das três salas (5×3): o assunto é uma mesa e uma placa. A mesa de quem atende
+  fica no eixo da placa do cliente, virada para a câmera; as cadeiras de visita do lado de cá, o
+  arquivo (armário com caixas) no fundo e uma sala de espera à direita, que é fundo de cena e fica
+  atrás do painel. Câmera a 6,1 — a mais fechada dos interiores, logo acima do `minDistance` 6.
+- **Regras do painel.** `projetosDoCliente` ordena as abas por id e só por id: por status, a aba
+  trocaria de lugar no refetch do "Live". `projetoEmFoco` aceita o projeto pedido se ele for do
+  cliente; senão fica com o primeiro em obra, e cancelado só se não houver outro. `urlSegura` deixa
+  virar link só o que é `http(s)` — o endereço é digitado no portal, e um `javascript:` num `href`
+  executaria no clique. `situacaoDoMarco`, `marcosEmOrdem` e `resumoDosMarcos`: atrasado é o
+  pendente cuja data prevista já passou, e a data é lida como dia de calendário, sem `Date` (§16).
+
 ---
 
 ## 9. Cena 3D
@@ -611,8 +637,9 @@ sem nada acusar. Hoje o teste cruza `LANDMARKS` × `DECOR_SPOTS` e falha.
 - `shadows="percentage"`, `flat` (sem tone mapping — mantém as cores da marca), `dpr` adaptativo
   (`PerformanceMonitor` + `AdaptiveDpr`).
 - Luz **física** (three r155+): hemisfério + direcional; intensidades vêm de `weatherStyle.ts`.
-- `Scene` = luz/céu/câmera comuns; o conteúdo alterna entre **quatro cenários** — `<City />`,
-  `<KanbanYard />`, `<BankBranch />` e `<Library />` — pelo par `yard` / `interior` do `uiStore` (§7).
+- `Scene` = luz/céu/câmera comuns; o conteúdo alterna entre **cinco cenários** — `<City />`,
+  `<KanbanYard />`, `<BankBranch />`, `<Library />` e `<EscritorioCliente />` — pelo par `yard` /
+  `interior` do `uiStore` (§7).
   O clima só existe na cidade: dentro de um interior não chove.
 - **`onPointerMissed` continua ativo nos cenários internos.** Lá não há entidade selecionada, mas o
   handler dispara a cada clique no vazio: na biblioteca ele **fecha o artigo** em vez de chamar
@@ -641,7 +668,7 @@ sem nada acusar. Hoje o teste cruza `LANDMARKS` × `DECOR_SPOTS` e falha.
 |---|---|
 | `Ground` | Campo, tapete claro da cidade, praça, malha viária em ladrilhos (`Instances` por peça), lotes, árvores |
 | `Outskirts` | Bosque instanciado no campo em volta da cidade (§9.8) |
-| `ClientBuilding` | "Sobe do chão" ao aparecer; pin de atenção; etiqueta `CL-xx` |
+| `ClientBuilding` | "Sobe do chão" ao aparecer; pin de atenção; etiqueta `CL-xx`; duplo clique entra no escritório do cliente |
 | `ConstructionSite` | Estacas (planejamento), andaime ∝ progresso + guindaste, faixa (pausado), anexo (concluído); duplo clique entra no pátio |
 | `Landmark` | Data Center (tanque industrial), Banco, Universidade, Prefeitura, Escritório; cor/pulso pela saúde |
 | `BuildingSign` | Placa com o nome da construção (§9.7); some ao afastar a câmera e pela chave do menu |
@@ -758,9 +785,10 @@ logo abaixo das ruas, em y = 0,004. Fora dele, `Outskirts` espalha pinheiros e a
   blocos de relevo foram testados e descartados: isolados num plano liso viram lajes verdes angulares,
   não morros.
 
-### 9.9 Interiores de landmark (`scene/interior/`)
+### 9.9 Interiores (`scene/interior/`)
 
-Dois cenários hoje — a agência do BC (§9.10) e a biblioteca da UN (§9.11) — e a casca é a mesma:
+Três cenários hoje — a agência do BC (§9.10), a biblioteca da UN (§9.11) e o escritório do cliente
+(§9.12) — e a casca é a mesma:
 
 - `RoomShell` desenha as duas paredes e o rodapé de `world/interior.ts`.
 - `FurnitureLayers` monta a mobília do **"Furniture Kit"** da Kenney, uma `<Instances>` por primitiva
@@ -874,6 +902,27 @@ e é o que liga o painel da HUD à cena.
   solta um toast: confirmação de cópia não pode depender de uma animação que pode não existir — nem
   de o leitor estar no enquadramento.
 - O grupo dele se chama `leitor`: é a alça pela qual os testes de navegador o acham no grafo.
+
+### 9.12 Escritório do cliente (`scene/sede/`)
+
+Entra-se por "Entrar no escritório" no inspector do cliente, por "Ver no escritório" no inspector do
+projeto (já abre naquele projeto) ou com duplo clique na sede — o mesmo gesto do canteiro para o
+pátio. Por enquanto é **só cenário**: nada se mexe nem é clicável lá dentro; o assunto mora no
+painel (§10.6). Medidas em `world/sede.ts`.
+
+- `EscritorioCliente` monta a casca comum e a mobília do kit. Todas as peças já eram usadas pela
+  agência ou pela biblioteca: o kit original não está em `assets-src`, então nenhum GLB novo entrou
+  (e o `sync-models.mjs` não mudou).
+- `PlacaDoCliente` é o que faz a sala ser **dele**, e não um escritório qualquer: o mesmo cartão do
+  totem da cidade (`signTexture.ts`), com código e nome, preso à parede do fundo sobre uma moldura.
+  Sem billboard (a câmera olha sempre do mesmo lado) e com material básico, como o totem. Cliente
+  inativo apaga o chip, como apaga a sede.
+- O piso é a madeira num tom mais quente que o da agência e da biblioteca; o cinza frio foi testado
+  e colava na parede.
+- O tapete fica **sobre** o piso — ver a armadilha do ladrilho de 5 cm em §16.
+- **Monitor e teclado olham para quem senta** (−z): da câmera se vê a traseira da tela, como de
+  quem chega à mesa.
+- **77–88 draw calls**, na faixa da biblioteca.
 
 ---
 
@@ -1082,6 +1131,27 @@ A aba **Missões** do painel do jogo mostra as metas em andamento e as recém-ba
 missões fixas da semana. Agendadas e expiradas ficam só na Prefeitura: ali o painel é sobre o que dá
 para fazer agora.
 
+### 10.6 Escritório do cliente (`hud/sede/`)
+
+`EscritorioPanel` ocupa a coluna da direita (680px), como o extrato e a biblioteca; no celular, folha
+de 68dvh. É a tela de projeto do portal (`projeto-detail`), na mesma ordem — detalhes (datas no
+formato longo do portal e o cronograma), observações, acesso de produção, links úteis, marcos e
+equipe alocada — e **por ora só leitura**: cadastrar marco, link, acesso ou equipe continua no
+MrCodeAdmin ("Editar no MrCodeAdmin"). O rodapé também leva ao pátio de obras do projeto.
+
+- O escritório é do **cliente**: com mais de um projeto, abas no topo trocam o projeto em foco.
+- Cabeçalho e datas saem da lista de projetos (já em cache, aparecem na hora); marcos, equipe, links
+  e a senha só existem no `GET /Projeto/{id}` — a senha, aliás, só vem decifrada ali (§16).
+- A senha começa escondida e volta a se esconder ao trocar de aba ou sair: a `key` do projeto
+  remonta o bloco. Copiar login ou senha confirma por toast — e o toast **nunca** leva o valor.
+- Endereço que não é `http(s)` aparece como texto, não como link (`urlSegura`, §8.12).
+- Ainda não há barra inferior como a `BankBar` e a `LibraryBar`: sai-se pelo ✕, pelo `Esc` ou pelo
+  seletor de distrito, e sair seleciona a sede do cliente na cidade.
+- Link velho de um cliente que não existe mais cai em "Cliente indisponível", e o painel esquece o
+  dono — senão o `Esc` voltaria selecionando um cliente fantasma.
+- No celular a câmera continua enquadrada para o desktop: a mesma limitação da agência e da
+  biblioteca.
+
 ### Tema
 
 Tokens no `@theme` de `index.css` (`brand`, `ink`, `surface`, `ok/warn/bad/info`, `shadow-card/float`).
@@ -1096,7 +1166,7 @@ Cor da marca `#134ced`. Tema claro "maquete"; `prefers-reduced-motion` reduz ani
 | Recurso | Onde aparece |
 |---|---|
 | Clientes e contratos | Sedes; inspector de cliente; Escritório |
-| Projetos | Canteiros; inspector (cronograma, marcos, equipe, quadro) |
+| Projetos | Canteiros; inspector (cronograma, marcos, equipe, quadro); **escritório do cliente** (acesso de produção, links, marcos, equipe — §10.6) |
 | Chamados | Caminhões; inspector; celular (aba Chamados); sino |
 | Mensagens do chamado | Celular, aba Chat — uma conversa por cliente |
 | Faturas e despesas | Banco; KPIs; inspector de fatura; **extrato da agência** (§10.3) |
@@ -1249,7 +1319,7 @@ Base `/api` (header `Authorization: Bearer <JWT>`). Resposta padrão `{ data, is
 | Login | `POST /Login` → `{ token, usuario }` |
 | Cliente | `GET /Cliente`, `POST`, `PUT /{id}`, `PATCH /{id}/status` |
 | Contrato | `GET /Contrato` |
-| Projeto | `GET /Projeto`, `GET /{id}` (marcos, equipe, links), `POST` |
+| Projeto | `GET /Projeto`, `GET /{id}` (marcos, equipe, links e acesso de produção — a senha só vem decifrada aqui), `POST` |
 | Chamado | `GET`, `GET /{id}`, `POST /interno`, `PATCH /{id}/status`, `PATCH /{id}/responsavel`, `POST /{id}/converter-atividade`, `GET/POST /{id}/mensagens` |
 | Fatura | `GET`, `GET /{id}`, `POST`, `PUT /{id}`, `PATCH /{id}/pagar|estornar|cancelar`, `POST /gerar-recorrentes` |
 | Despesa | `GET`, `GET /{id}`, `POST`, `PUT /{id}`, `PATCH /{id}/pagar|estornar`, `POST /gerar-recorrentes` |
@@ -1294,10 +1364,11 @@ que é tratado antes dessa guarda. Por isso o campo de resposta do chat trata `E
 (desfoca e chama `stopPropagation`): sem isso, apertar `Esc` no meio de uma frase limparia a seleção da
 cidade.
 
-Mouse: esquerdo arrasta o mapa, direito gira, roda dá zoom, duplo clique num canteiro entra no pátio.
+Mouse: esquerdo arrasta o mapa, direito gira, roda dá zoom, duplo clique num canteiro entra no pátio
+e numa sede entra no escritório do cliente.
 Na biblioteca, clicar numa lombada abre o artigo e clicar no chão o fecha.
 
-### Os quatro cenários
+### Os cinco cenários
 
 | Cenário | Como entra | Como sai | Estado |
 |---|---|---|---|
@@ -1305,8 +1376,9 @@ Na biblioteca, clicar numa lombada abre o artigo e clicar no chão o fecha.
 | **Pátio de obras** | duplo clique num canteiro, ou "Abrir pátio" no inspector do projeto | botão Cidade · `Esc` | `yard = <idProjeto>` |
 | **Agência do BC** | "Ver conta bancária" no Banco Central | botão Cidade · `Esc` · ✕ do extrato | `interior = 'banco'` |
 | **Biblioteca da UN** | "Entrar na biblioteca" na Universidade, ou clicar num artigo da lista dela | botão Cidade · `Esc` · ✕ do painel | `interior = 'universidade'` |
+| **Escritório do cliente** | "Entrar no escritório" no inspector do cliente, "Ver no escritório" no do projeto, ou duplo clique na sede | `Esc` · ✕ do painel | `interior = 'sede'` + `sedeStore.idCliente` |
 
-Os três cenários não-cidade são **mutuamente exclusivos**, e selecionar qualquer coisa da cidade
+Os quatro cenários não-cidade são **mutuamente exclusivos**, e selecionar qualquer coisa da cidade
 (busca, notificação, distrito) sai de onde estiver. Tudo isso é um par de campos no `uiStore` —
 `yard` e `interior` —, espelhado na URL (§3 e §7).
 
@@ -1315,7 +1387,7 @@ Os três cenários não-cidade são **mutuamente exclusivos**, e selecionar qual
 ## 15. Testes e qualidade
 
 ```bash
-npm test         # vitest — 229 testes
+npm test         # vitest — 266 testes
 npm run lint     # oxlint — zero avisos
 npx tsc -b       # tipos (app + configs + e2e)
 E2E_EMAIL=... E2E_PASSWORD=... npm run e2e   # Playwright — 6 testes
@@ -1358,6 +1430,7 @@ chama `Date.now()` por dentro.
 | `extrato.test.ts` | Mês, recorte por data, filtros, agrupamento por dia, totais, grade do ano |
 | `bank.test.ts` | Planta da agência, paredes, balcão, caminho do malote, calendário, câmera |
 | `universidade.test.ts` | Prateleiras por projeto, lombadas, estante, trajeto do leitor, câmera |
+| `sede.test.ts` | Planta, placa e câmera do escritório, interior na URL, projeto em foco, links seguros, marcos |
 | `phone.test.ts` | Abas, filtros, conversas, blocos do chat, prazo da conversão |
 | `signs.test.ts` | Âncoras, recorte de rótulo, opacidade e **folga entre prédios, placas e decoração** |
 | `outskirts.test.ts` | Bosque determinístico, espaçamento, alcance |
@@ -1468,6 +1541,13 @@ principal instrumento de qualidade deste projeto, e tem particularidades que cus
 - **Recompensa que não se registra se paga duas vezes.** Progresso derivado de dado oscila (um
   chamado reaberto sai de "resolvidos"); o que foi conquistado precisa de registro próprio, senão o
   bônus volta a ser pago a cada carga ou simplesmente some.
+- **O ladrilho do piso tem 5 cm** (`PISO_Y`, em `world/interior.ts`). Móvel apoiado em y = 0 afunda
+  sem ninguém notar, mas um tapete (1 cm) some inteiro dentro dele — e rente ao tampo, por causa da
+  malha quantizada pelo meshopt, só aparece em fiapos. O escritório apoia o tapete em `PISO_Y` mais
+  uns milímetros. **Os tapetes da agência e da biblioteca ainda estão em y = 0, enterrados.**
+- **A senha de produção só vem no detalhe.** O `GET /Projeto` devolve `senhaProducao: null`: o banco
+  guarda a senha cifrada e só o `ProjetoService.MapParaDTO` do backend a decifra. Leia do
+  `GET /Projeto/{id}`.
 - **`PUT /Cliente`** sobrescreve `idSistemaOrigem` — sempre reenviar o valor atual.
 - **Mover atividade** exigiu correção no backend (conflito de tracking do EF em
   `KanbanDomainService.ReordenarAtividadesDaColuna`) — sem ela, o `PATCH` retorna 400.
@@ -1593,9 +1673,10 @@ Abra com `?perf` para ver fps, draw calls, triângulos, geometrias e texturas (`
 | Draw calls — pátio | ≤ 450 | 105 |
 | Draw calls — agência do BC | ≤ 450 | 90 |
 | Draw calls — biblioteca da UN | ≤ 450 | 78 |
+| Draw calls — escritório do cliente | ≤ 450 | 77–88 |
 | Triângulos | ≤ 250 mil | 168 mil (cidade) · 27 mil (pátio) |
 
-Os cenários internos (§9.9–9.11) são baratos porque **tudo neles é instanciado por modelo**: a sala
+Os cenários internos (§9.9–9.12) são baratos porque **tudo neles é instanciado por modelo**: a sala
 inteira cabe em poucas dezenas de chamadas, e as ~100 lombadas da estante custam **uma**.
 
 Cada cliente soma ~50 draw calls (sede, canteiros e caminhões, contando a sombra). Perto de 15 clientes,

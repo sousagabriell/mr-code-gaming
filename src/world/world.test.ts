@@ -50,6 +50,8 @@ function projeto(id: number, idCliente: number, extra: Partial<ProjetoDTO> = {})
     prioridade: 'Media',
     observacoes: null,
     linkProducao: null,
+    loginProducao: null,
+    senhaProducao: null,
     marcos: [],
     equipe: [],
     links: [],
