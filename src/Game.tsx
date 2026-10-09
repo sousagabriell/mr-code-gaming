@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { BankBar } from './hud/bank/BankBar';
+import { BankDetail } from './hud/bank/BankDetail';
 import { BankPanel } from './hud/bank/BankPanel';
 import { CameraToolbar } from './hud/CameraToolbar';
 import { FormDrawer } from './hud/FormDrawer';
@@ -9,6 +10,8 @@ import { SearchPalette } from './hud/SearchPalette';
 import { TimelineTray } from './hud/TimelineTray';
 import { Toasts } from './hud/Toasts';
 import { TopBar } from './hud/TopBar';
+import { LibraryBar } from './hud/wiki/LibraryBar';
+import { WikiPanel } from './hud/wiki/WikiPanel';
 import { YardPanel } from './hud/yard/YardPanel';
 import { YardTable } from './hud/yard/YardTable';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -20,7 +23,7 @@ import { ListView } from './hud/list/ListView';
 import { MobileDock } from './hud/MobileDock';
 import { Phone } from './hud/phone/Phone';
 import { Tour } from './hud/Tour';
-import { useIsDesktop, useIsMobile } from './hooks/useIsMobile';
+import { useIsDesktop, useIsMobile, useMediaQuery } from './hooks/useIsMobile';
 import { usePrefsStore } from './store/prefsStore';
 import { LevelUpOverlay } from './hud/game/LevelUpOverlay';
 import { useGame } from './hooks/useGame';
@@ -54,11 +57,16 @@ export default function Game() {
   const game = useGame();
   const alert = game.health.weather === 'tempestade';
   const yard = useUiStore((s) => s.yard);
-  const banco = useUiStore((s) => s.banco);
+  const interior = useUiStore((s) => s.interior);
+  const banco = interior === 'banco';
+  const biblioteca = interior === 'universidade';
   const selected = useUiStore((s) => s.selected);
   const lista = usePrefsStore((s) => s.viewMode) === 'lista';
   const isMobile = useIsMobile();
   const desktop = useIsDesktop();
+  // Abaixo de 1280px não cabem o detalhe (360) e o extrato (680) lado a lado: lá o detalhe entra
+  // dentro do próprio extrato.
+  const detalheAoLado = useMediaQuery('(min-width: 1280px)');
   useKeyboardShortcuts();
   useGameProgress(game);
 
@@ -74,9 +82,9 @@ export default function Game() {
           <CityScene />
         </Suspense>
       )}
-      {/* key troca a cada entrada/saída de cenário (pátio, agência) e reinicia a animação do véu */}
+      {/* key troca a cada entrada/saída de cenário (pátio, interior) e reinicia a animação do véu */}
       <div
-        key={banco ? 'banco' : (yard ?? 'city')}
+        key={interior ?? yard ?? 'city'}
         className="animate-scene-fade pointer-events-none absolute inset-0 z-10 bg-page"
       />
 
@@ -87,9 +95,12 @@ export default function Game() {
       <div className="pointer-events-none absolute inset-0 z-20">
         <TopBar />
 
-        <div className="pointer-events-auto absolute left-4 top-[76px] hidden w-[min(660px,calc(100vw-480px))] lg:block">
-          <KpiCards />
-        </div>
+        {/* Nos interiores os KPIs da cidade sairiam de contexto — cada painel traz o resumo do seu assunto. */}
+        {!interior && (
+          <div className="pointer-events-auto absolute left-4 top-[76px] hidden w-[min(660px,calc(100vw-480px))] lg:block">
+            <KpiCards />
+          </div>
+        )}
 
         {isMobile ? (
           <>
@@ -98,10 +109,14 @@ export default function Game() {
                 <CameraToolbar />
               </div>
             )}
-            {/* Celular: o extrato e o inspector viram folhas que sobem da base. */}
+            {/* Celular: os painéis de interior e o inspector viram folhas que sobem da base. */}
             {banco ? (
               <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-30">
-                <BankPanel />
+                <BankPanel detalheEmbutido />
+              </div>
+            ) : biblioteca ? (
+              <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-30">
+                <WikiPanel />
               </div>
             ) : selected ? (
               <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-30">
@@ -112,9 +127,12 @@ export default function Game() {
             )}
           </>
         ) : (
-          // Sem lista, a base da coluna para logo acima do celular recolhido (124px + as folgas).
+          // Na cidade a base da coluna para acima da linha do tempo (142px + as folgas); no pátio,
+          // acima da tabela do pátio. Nos interiores o painel ocupa a coluna inteira.
           <div
-            className={`absolute right-4 top-[76px] bottom-4 flex items-start gap-2 ${lista || banco ? '' : 'lg:bottom-[156px]'}`}
+            className={`absolute right-4 top-[76px] bottom-4 flex items-start gap-2 ${
+              lista || interior ? '' : yard ? 'lg:bottom-[300px]' : 'lg:bottom-[174px]'
+            }`}
           >
             {/* A partir de 1024px os controles de câmera moram na barra superior. */}
             {!lista && !desktop && (
@@ -122,29 +140,52 @@ export default function Game() {
                 <CameraToolbar />
               </div>
             )}
-            {/* Na agência o extrato ocupa a coluna inteira — não há entidade selecionada lá dentro. */}
-            <div className={`pointer-events-auto flex max-h-full ${banco ? 'w-[min(560px,calc(100vw-32px))]' : ''}`}>
-              {banco ? <BankPanel /> : <Inspector />}
+            {/* Na agência o detalhe é um painel ao lado do extrato; a biblioteca usa a coluna inteira. */}
+            {banco && detalheAoLado && (
+              <div className="pointer-events-auto flex max-h-full w-[360px]">
+                <BankDetail />
+              </div>
+            )}
+            <div className={`pointer-events-auto flex max-h-full ${interior ? 'w-[min(680px,calc(100vw-32px))]' : ''}`}>
+              {banco ? (
+                <BankPanel detalheEmbutido={!detalheAoLado} />
+              ) : biblioteca ? (
+                <WikiPanel />
+              ) : (
+                <Inspector />
+              )}
             </div>
           </div>
         )}
 
         {!lista && (
           <>
-            {/* A folga da direita acompanha quem está lá: o extrato (560) é mais largo que o celular. */}
-            <div
-              className={`pointer-events-auto absolute bottom-4 left-4 hidden lg:block ${
-                banco ? 'w-[min(760px,calc(100vw-608px))]' : 'w-[min(760px,calc(100vw-424px))]'
-              }`}
-            >
-              {banco ? <BankBar /> : yard ? <YardPanel /> : <TimelineTray />}
-            </div>
+            {/*
+              Na cidade o celular fica à **esquerda** e a linha do tempo à direita: o aparelho aberto
+              deixava de cobrir a cena e passava a disputar a coluna do inspector. No pátio e nos
+              interiores não há celular, e a barra de lá fica onde o celular estaria.
+            */}
+            {!yard && !interior && <Phone />}
+            {(yard || interior) && (
+              <div
+                className={`pointer-events-auto absolute bottom-4 left-4 hidden lg:block ${
+                  interior ? 'w-[min(760px,calc(100vw-728px))]' : 'w-[min(760px,calc(100vw-424px))]'
+                }`}
+              >
+                {banco ? <BankBar /> : biblioteca ? <LibraryBar /> : <YardPanel />}
+              </div>
+            )}
             {yard ? (
               <div className="pointer-events-auto absolute bottom-4 right-4 hidden w-[376px] lg:block">
                 <YardTable />
               </div>
             ) : (
-              !banco && <Phone />
+              // A folga da esquerda é o celular recolhido (352 + folgas).
+              !interior && (
+                <div className="pointer-events-auto absolute bottom-4 right-4 hidden w-[min(760px,calc(100vw-400px))] lg:block">
+                  <TimelineTray />
+                </div>
+              )
             )}
           </>
         )}

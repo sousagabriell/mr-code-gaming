@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { frontRoadZ, LANE_OFFSET, lotPosition, LOT_SPACING } from './layout';
+import { DECOR_SPOTS } from './decor';
+import { frontRoadZ, LANDMARKS, LANE_OFFSET, lotPosition, LOT_SPACING } from './layout';
 import {
   clientSignAnchor,
   landmarkSignAnchor,
@@ -88,15 +89,43 @@ describe('clientSignAnchor', () => {
 });
 
 describe('landmarkSignAnchor', () => {
-  it('alinha os quatro landmarks no mesmo z', () => {
-    const zs = [-7.5, -2.5, 2.5, 7.5].map((x) => landmarkSignAnchor(x)[2]);
+  it('alinha a fileira cívica inteira no mesmo z', () => {
+    const zs = LANDMARKS.map((l) => landmarkSignAnchor(l.position[0])[2]);
+    expect(LANDMARKS.length).toBeGreaterThanOrEqual(5);
     expect(new Set(zs).size).toBe(1);
   });
 
-  it('mantém distância da fonte (x=0) e da estátua (x=-5) da praça', () => {
+  it('nenhuma placa varre a praça nem outro landmark', () => {
     const r = signSweepRadius(true);
-    for (const x of [-7.5, -2.5, 2.5, 7.5]) {
-      for (const decor of [0, -5]) expect(Math.abs(x - decor)).toBeGreaterThan(r + 0.75);
+    const xs = LANDMARKS.map((l) => l.position[0]);
+    for (let i = 1; i < xs.length; i++) {
+      expect(Math.abs(xs[i] - xs[i - 1]), `placas de ${xs[i - 1]} e ${xs[i]}`).toBeGreaterThan(r * 2);
+    }
+  });
+
+  /**
+   * O teste cruza as **duas tabelas de verdade** (`LANDMARKS` e `DECOR_SPOTS`) em vez de repetir
+   * coordenadas à mão: foi por serem cópias que o monumento acabou plantado em cima do quinto prédio
+   * cívico sem nada acusar.
+   */
+  it('nenhum prédio cívico encosta numa construção de desbloqueio', () => {
+    const FOOTPRINT = 1.3; // meia-largura do maior landmark
+    for (const l of LANDMARKS) {
+      for (const d of DECOR_SPOTS) {
+        const dist = Math.hypot(l.position[0] - d.position[0], l.position[2] - d.position[2]);
+        expect(dist, `${l.kind} × ${d.key}`).toBeGreaterThan(FOOTPRINT + d.raio);
+      }
+    }
+  });
+
+  it('a placa de cada prédio também fica livre da decoração', () => {
+    const r = signSweepRadius(true);
+    for (const l of LANDMARKS) {
+      const [sx, , sz] = landmarkSignAnchor(l.position[0]);
+      for (const d of DECOR_SPOTS) {
+        const dist = Math.hypot(sx - d.position[0], sz - d.position[2]);
+        expect(dist, `placa de ${l.kind} × ${d.key}`).toBeGreaterThan(r + d.raio);
+      }
     }
   });
 });

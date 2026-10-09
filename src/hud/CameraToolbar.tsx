@@ -14,8 +14,9 @@ export function CameraToolbar({ horizontal = false }: { horizontal?: boolean }) 
   const buildMode = useUiStore((s) => s.buildMode);
   const setBuildMode = useUiStore((s) => s.setBuildMode);
   const yard = useUiStore((s) => s.yard);
-  const banco = useUiStore((s) => s.banco);
+  const interior = useUiStore((s) => s.interior);
   const openDrawer = useUiStore((s) => s.openDrawer);
+  const casa = interior === 'banco' ? 'a agência' : interior === 'universidade' ? 'a biblioteca' : null;
 
   const separador = horizontal ? 'mx-0.5 h-5 w-px bg-line' : 'my-0.5 h-px w-5 bg-line';
 
@@ -47,18 +48,18 @@ export function CameraToolbar({ horizontal = false }: { horizontal?: boolean }) 
           <RotateCw className="h-4 w-4" />
         </IconButton>
         <IconButton
-          label={banco ? 'Enquadrar a agência (H)' : yard ? 'Enquadrar o pátio (H)' : 'Visão geral (H)'}
+          label={casa ? `Enquadrar ${casa} (H)` : yard ? 'Enquadrar o pátio (H)' : 'Visão geral (H)'}
           onClick={() => {
-            // Na agência não há seleção: limpar levaria de volta para a cidade.
-            if (!banco) clearSelection();
+            // Nos interiores não há seleção: limpar levaria de volta para a cidade.
+            if (!interior) clearSelection();
             goHome(controls);
           }}
         >
           <Home className="h-4 w-4" />
         </IconButton>
         <div className={separador} />
-        {/* Não há o que construir dentro da agência — lá o martelo some. */}
-        {!banco && (
+        {/* Não há o que construir dentro de um interior — lá o martelo some. */}
+        {!interior && (
           <IconButton
             label={yard ? 'Nova atividade (B)' : buildMode ? 'Sair do modo construção (B)' : 'Modo construção (B)'}
             onClick={() => (yard ? openDrawer({ form: 'nova-atividade', idProjeto: yard }) : setBuildMode(!buildMode))}

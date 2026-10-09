@@ -1,14 +1,21 @@
 import { useEffect } from 'react';
 import { goHome, panStep, rotateQuarter, zoomStep } from '../hud/camera';
+import { useBankStore } from '../store/bankStore';
 import { useGameStore } from '../store/gameStore';
 import { usePhoneStore } from '../store/phoneStore';
 import { usePrefsStore } from '../store/prefsStore';
 import { useUiStore } from '../store/uiStore';
+import { useWikiStore } from '../store/wikiStore';
+import type { InteriorKind } from '../world/interiors';
 
 function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 }
+
+/** Cada interior tem seu painel, e cada painel sabe voltar um degrau antes de o Esc sair do cenário. */
+const painelDoInterior = (kind: InteriorKind) =>
+  kind === 'banco' ? useBankStore.getState() : useWikiStore.getState();
 
 const PAN = 2;
 
@@ -33,7 +40,9 @@ export function useKeyboardShortcuts() {
         else if (phone.montado && phone.aberto && phone.voltar()) return;
         else if (phone.montado && phone.aberto) phone.setAberto(false);
         else if (ui.buildMode) ui.setBuildMode(false);
-        else if (ui.banco) ui.exitBanco();
+        // Nos interiores: fecha o painel aberto (formulário, detalhe, artigo) e só então sai do cenário.
+        else if (ui.interior && painelDoInterior(ui.interior).voltar()) return;
+        else if (ui.interior) ui.exitInterior();
         else if (ui.selected) ui.clearSelection();
         else if (ui.yard) ui.exitYard();
         return;

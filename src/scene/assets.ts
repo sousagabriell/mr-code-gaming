@@ -70,6 +70,8 @@ export const LANDMARK_MODELS: Record<LandmarkKind, { url: string; footprint: num
   banco: { url: industrialModel('building-t'), footprint: 2.6, rotationY: Math.PI },
   universidade: { url: cityModel('building-j'), footprint: 2.5 },
   prefeitura: { url: industrialModel('building-a'), footprint: 2.6, rotationY: Math.PI },
+  // `building-n` está fora dos `BUILDING_TIERS`: nenhuma sede de cliente usa o mesmo prédio.
+  escritorio: { url: cityModel('building-n'), footprint: 2.5 },
 };
 
 export const TOWER_MODEL = cityModel('building-skyscraper-c');

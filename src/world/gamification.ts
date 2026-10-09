@@ -25,9 +25,22 @@ export interface GameData {
   kanbans: Map<number, KanbanColunaDTO[]>;
   observabilidade: ObservabilidadeResumoDTO | null;
   dashboard: DashboardResumoDTO | null;
+  /**
+   * Bônus das metas da Prefeitura já batidas (`world/metas.ts`). É a **única** parcela do XP que não
+   * sai do backend: vem do armazenamento local do navegador — ver MANUAL §12 e §17.
+   */
+  metasCumpridas?: { quantas: number; xp: number };
 }
 
-export type XpCategory = 'clientes' | 'contratos' | 'projetos' | 'chamados' | 'atividades' | 'faturas' | 'wiki';
+export type XpCategory =
+  | 'clientes'
+  | 'contratos'
+  | 'projetos'
+  | 'chamados'
+  | 'atividades'
+  | 'faturas'
+  | 'wiki'
+  | 'metas';
 
 export interface XpLine {
   key: XpCategory;
@@ -36,8 +49,8 @@ export interface XpLine {
   xp: number;
 }
 
-const CHAMADO_XP = { Baixa: 30, Media: 50, Alta: 100 } as const;
-const isChamadoResolvido = (c: ChamadoDTO) => c.status === 'Resolvido' || c.status === 'Fechado';
+export const CHAMADO_XP = { Baixa: 30, Media: 50, Alta: 100 } as const;
+export const isChamadoResolvido = (c: Pick<ChamadoDTO, 'status'>) => c.status === 'Resolvido' || c.status === 'Fechado';
 
 export const faturaXp = (f: Pick<FaturaDTO, 'valor'>) => 30 + Math.round(f.valor / 1000) * 5;
 export const atividadeXp = (tipo: string) => (tipo === 'Bug' ? 30 : 20);
@@ -64,6 +77,11 @@ export function computeXp(d: GameData): { total: number; lines: XpLine[] } {
     { key: 'faturas', label: 'Faturas recebidas', count: faturas.length, xp: faturas.reduce((s, f) => s + faturaXp(f), 0) },
     { key: 'wiki', label: 'Artigos na wiki', count: d.wikiPaginas.length, xp: d.wikiPaginas.length * 15 },
   ];
+  // Só aparece quando há meta batida: uma cidade sem metas tem exatamente o XP que sempre teve.
+  const metas = d.metasCumpridas;
+  if (metas && metas.quantas > 0) {
+    lines.push({ key: 'metas', label: 'Metas cumpridas', count: metas.quantas, xp: metas.xp });
+  }
   return { total: lines.reduce((s, l) => s + l.xp, 0), lines };
 }
 

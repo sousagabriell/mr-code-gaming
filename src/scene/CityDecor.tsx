@@ -4,8 +4,9 @@ import { RoundedBox } from '@react-three/drei';
 import { easing } from 'maath';
 import type { Group } from 'three';
 import { COLORS } from '../world/colors';
+import { decorSpot } from '../world/decor';
 import type { Unlock } from '../world/gamification';
-import { LANDMARK_Z, type Vec3 } from '../world/layout';
+import type { Vec3 } from '../world/layout';
 import { TOWER_MODEL } from './assets';
 import { Prop } from './Prop';
 import { motion } from './motion';
@@ -210,14 +211,15 @@ function Monumento() {
   );
 }
 
-const PLACEMENT: Record<Unlock['key'], { position: Vec3; node: () => ReactNode }> = {
-  fonte: { position: [0, 0, LANDMARK_Z + 2.1], node: () => <Fonte /> },
-  estatua: { position: [-5, 0, LANDMARK_Z + 2.1], node: () => <Estatua /> },
-  parque: { position: [-14, 0, 1.5], node: () => <Parque /> },
-  'roda-gigante': { position: [14, 0, 1.5], node: () => <RodaGigante /> },
-  torre: { position: [0, 0, LANDMARK_Z - 3.2], node: () => <Torre /> },
-  heliponto: { position: [-14, 0, -6.5], node: () => <Heliponto /> },
-  monumento: { position: [14, 0, -6.5], node: () => <Monumento /> },
+/** Só o desenho: as **posições** moram em `world/decor.ts`, onde os testes as cruzam com os landmarks. */
+const NODE: Record<Unlock['key'], () => ReactNode> = {
+  fonte: () => <Fonte />,
+  estatua: () => <Estatua />,
+  parque: () => <Parque />,
+  'roda-gigante': () => <RodaGigante />,
+  torre: () => <Torre />,
+  heliponto: () => <Heliponto />,
+  monumento: () => <Monumento />,
 };
 
 /** Construções que a cidade ganha ao subir de nível (gamification.UNLOCKS). */
@@ -225,8 +227,8 @@ export function CityDecor({ unlocked }: { unlocked: Unlock[] }) {
   return (
     <>
       {unlocked.map((u) => (
-        <Rise key={u.key} position={PLACEMENT[u.key].position}>
-          <Suspense fallback={null}>{PLACEMENT[u.key].node()}</Suspense>
+        <Rise key={u.key} position={decorSpot(u.key).position}>
+          <Suspense fallback={null}>{NODE[u.key]()}</Suspense>
         </Rise>
       ))}
     </>

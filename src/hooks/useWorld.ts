@@ -10,6 +10,7 @@ import {
   useProjetosQuery,
   useWikiQuery,
 } from '../api/queries';
+import { paginasDeExemplo, usarAcervoDeExemplo } from '../api/mockWiki';
 import type {
   ChamadoDTO,
   ClienteDTO,
@@ -48,6 +49,17 @@ export function useWorld() {
   const isLoading = core.some((q) => q.isPending);
   const isError = core.some((q) => q.isError);
 
+  /**
+   * Acervo de exemplo da biblioteca em dev (ver `api/mockWiki.ts`). A troca é aqui, e não dentro da
+   * query, porque o acervo é montado em cima dos **projetos reais** do ambiente — é o que faz as
+   * etiquetas da estante mostrarem nomes de verdade.
+   */
+  const wikiDeExemplo = usarAcervoDeExemplo(wiki.isSuccess, wiki.data?.length ?? 0);
+  const paginas = useMemo(
+    () => (wikiDeExemplo ? paginasDeExemplo(projetos.data ?? NO_PROJETOS) : (wiki.data ?? NO_WIKI)),
+    [wikiDeExemplo, projetos.data, wiki.data]
+  );
+
   // Objeto estável enquanto nenhum dado muda — consumidores podem usá-lo como dependência de useMemo.
   return useMemo(
     () => ({
@@ -57,7 +69,9 @@ export function useWorld() {
       chamados: chamados.data ?? NO_CHAMADOS,
       faturas: faturas.data ?? NO_FATURAS,
       despesas: despesas.data ?? NO_DESPESAS,
-      wikiPaginas: wiki.data ?? NO_WIKI,
+      wikiPaginas: paginas,
+      /** Os artigos acima são o acervo de exemplo, não vieram do MrCodeAdmin. A HUD avisa. */
+      wikiDeExemplo,
       colaboradores: equipe.data ?? NO_EQUIPE,
       observabilidade: observabilidade.data ?? null,
       isLoading,
@@ -70,7 +84,8 @@ export function useWorld() {
       chamados.data,
       faturas.data,
       despesas.data,
-      wiki.data,
+      paginas,
+      wikiDeExemplo,
       equipe.data,
       observabilidade.data,
       isLoading,

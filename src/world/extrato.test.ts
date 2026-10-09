@@ -12,6 +12,7 @@ import {
   labelDia,
   labelMes,
   mesDe,
+  mesesDoAno,
   mesParam,
   mesmoMes,
   noMes,
@@ -79,6 +80,27 @@ describe('navegador de mês', () => {
   it('mesmoMes compara ano e mês', () => {
     expect(mesmoMes({ ano: 2026, mes: 10 }, { ano: 2026, mes: 10 })).toBe(true);
     expect(mesmoMes({ ano: 2026, mes: 10 }, { ano: 2025, mes: 10 })).toBe(false);
+  });
+});
+
+describe('mesesDoAno', () => {
+  const grade = mesesDoAno(2026);
+
+  it('devolve os doze meses do ano, em ordem', () => {
+    expect(grade).toHaveLength(12);
+    expect(grade.map((g) => g.mes.mes)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    for (const g of grade) expect(g.mes.ano).toBe(2026);
+  });
+
+  it('o rótulo é curto, com inicial maiúscula e sem ponto', () => {
+    expect(grade[0].curto).toBe('Jan');
+    expect(grade[11].curto).toBe('Dez');
+    for (const g of grade) expect(g.curto).not.toContain('.');
+  });
+
+  it('casa com o mês selecionado via mesmoMes', () => {
+    const selecionado = { ano: 2026, mes: 10 };
+    expect(grade.filter((g) => mesmoMes(g.mes, selecionado))).toHaveLength(1);
   });
 });
 

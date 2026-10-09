@@ -1,77 +1,44 @@
-import { Suspense, useMemo } from 'react';
-import { Instance, Instances } from '@react-three/drei';
-import { buildBankLayout, type BankPiece, type BankPieceKind } from '../../world/bank';
+import { useMemo } from 'react';
+import { useWorld } from '../../hooks/useWorld';
+import { buildBankLayout, type BankPieceKind } from '../../world/bank';
 import { COLORS } from '../../world/colors';
-import { furnitureModel } from '../assets';
-import { useKenneyParts } from '../kenney';
+import { FurnitureLayers, type ColorOverrides } from '../interior/FurnitureLayers';
+import { RoomShell } from '../interior/RoomShell';
+import { BankEvents } from './BankEvents';
+import { useBankEventDetector } from './useBankEventDetector';
+import { WallCalendar } from './WallCalendar';
 
 /**
- * Agência do Banco Central: o cenário que se abre no "ver conta bancária". É cenário — não há nada
- * clicável aqui dentro; o extrato mora na HUD. As medidas vêm de `world/bank.ts`.
- *
- * Os modelos entram **em escala natural** (sem `size`): o kit de móveis já é desenhado numa grade de
- * 1×1, e normalizar peça a peça deixaria a lixeira do tamanho do sofá.
+ * Agência do Banco Central: o cenário que se abre no "ver conta bancária". O único clicável aqui
+ * dentro é o calendário de parede; o extrato mora na HUD. As medidas vêm de `world/bank.ts` e a
+ * casca da sala de `scene/interior/`.
  */
 
-/**
- * Os modelos do kit não têm textura — a cor vem do nome do material. Repintar é o que faz a sala
- * combinar com a maquete clara em vez de parecer uma casa de madeira. Referências estáveis: entram
- * nas dependências do memo de `useKenneyParts`.
- */
-const CHAO = { wood: '#e9e3d6', woodDark: '#d6cdbb' } as const;
-const PAREDE = { wood: COLORS.wall, _defaultMat: COLORS.glass, metalDark: COLORS.wallShade } as const;
-const COFRE = { metalLight: '#9aa4b8', metalMedium: '#6b768c' } as const;
-const BALCAO = { wood: '#f1ece1', woodDark: '#cdbfa6', metal: COLORS.neutral } as const;
+const CHAO = { wood: '#e9e3d6', woodDark: '#d6cdbb' };
+const COFRE = { metalLight: '#9aa4b8', metalMedium: '#6b768c' };
+const BALCAO = { wood: '#f1ece1', woodDark: '#cdbfa6', metal: COLORS.neutral };
 
-const COLORS_BY_KIND: Partial<Record<BankPieceKind, Record<string, string>>> = {
+// Referências estáveis: entram nas dependências do memo de `useKenneyParts`.
+const CORES: Record<BankPieceKind | string, Record<string, string>> = {
   floorFull: CHAO,
-  wall: PAREDE,
-  wallWindow: PAREDE,
-  wallDoorway: PAREDE,
   kitchenBar: BALCAO,
   kitchenBarEnd: BALCAO,
   kitchenFridgeLarge: COFRE,
-};
-
-/** Uma `<Instances>` por primitiva do modelo — o mesmo desenho do bosque em `Outskirts`. */
-function PieceLayer({ kind, items }: { kind: BankPieceKind; items: BankPiece[] }) {
-  const parts = useKenneyParts(furnitureModel(kind), { colors: COLORS_BY_KIND[kind] });
-  if (items.length === 0) return null;
-  return (
-    <>
-      {parts.map(({ geometry, material }, i) => (
-        <Instances key={i} limit={items.length} geometry={geometry} material={material} castShadow receiveShadow>
-          {items.map((p, j) => (
-            <Instance key={j} position={p.position} rotation={[0, p.rotationY, 0]} />
-          ))}
-        </Instances>
-      ))}
-    </>
-  );
-}
+} satisfies ColorOverrides;
 
 export function BankBranch() {
   const layout = useMemo(() => buildBankLayout(), []);
+  const { faturas, despesas, isLoading } = useWorld();
+  useBankEventDetector(faturas, despesas, !isLoading);
 
-  // Agrupa por modelo para que cada um carregue e instancie uma vez só.
-  const porKind = useMemo(() => {
-    const mapa = new Map<BankPieceKind, BankPiece[]>();
-    for (const peca of [...layout.floor, ...layout.walls, ...layout.furniture]) {
-      const lista = mapa.get(peca.kind);
-      if (lista) lista.push(peca);
-      else mapa.set(peca.kind, [peca]);
-    }
-    return [...mapa.entries()];
-  }, [layout]);
+  const pecas = useMemo(() => [...layout.floor, ...layout.furniture], [layout]);
 
   return (
     <group>
-      {/* Cada modelo tem sua própria fronteira: um download novo não esconde o resto da sala. */}
-      {porKind.map(([kind, items]) => (
-        <Suspense key={kind} fallback={null}>
-          <PieceLayer kind={kind} items={items} />
-        </Suspense>
-      ))}
+      <RoomShell walls={layout.walls} baseboards={layout.baseboards} />
+      <FurnitureLayers pieces={pecas} colors={CORES} />
+      <WallCalendar />
+      <BankEvents />
     </group>
   );
 }

@@ -99,9 +99,10 @@ export function Phone() {
   const semMovimento = useReducedMotion();
 
   /**
-   * O aparelho aberto cobre o inspector. Enquanto houver seleção ele encolhe; ao limpar a seleção
-   * volta ao estado que o usuário escolheu. O `focusNonce` entra junto para o caso de trocar de
-   * entidade com o celular reaberto por cima.
+   * Aberto, o aparelho tapa a metade esquerda da cena. Enquanto houver seleção ele encolhe — quem
+   * clica num prédio quer ver a cidade e o inspector, não a lista de chamados — e volta ao estado
+   * escolhido pelo usuário quando a seleção é limpa. O `focusNonce` entra junto para o caso de
+   * trocar de entidade com o celular reaberto por cima.
    *
    * O valor anterior fica num `ref` em vez de uma flag de "primeira execução": o StrictMode monta
    * duas vezes em dev, e a flag faria o efeito pular justamente a abertura vinda da URL (`?sel=`).
@@ -128,8 +129,9 @@ export function Phone() {
   return (
     <div
       className={cx(
-        // Mesma largura do inspector (`w-[min(352px,...)]`): os dois formam uma coluna só.
-        'pointer-events-auto absolute bottom-4 right-4 z-30 w-[min(352px,calc(100vw-32px))]',
+        // Canto inferior **esquerdo**: aberto, o aparelho cobre a cena em vez de disputar a coluna
+        // do inspector, que é onde o clique na cidade entrega o resultado.
+        'pointer-events-auto absolute bottom-4 left-4 z-30 w-[min(352px,calc(100vw-32px))]',
         !semMovimento && 'transition-[height] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',
         aberto ? 'h-[min(640px,calc(100vh-92px))]' : 'h-[124px]'
       )}

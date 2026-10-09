@@ -1,10 +1,13 @@
 import { useCallback, useRef } from 'react';
-import { Check, Lock, Medal, Star, Target, Trophy, X } from 'lucide-react';
+import { Check, Flag, Lock, Medal, Star, Target, Trophy, X } from 'lucide-react';
 import { useGame } from '../../hooks/useGame';
-import { formatDateShort } from '../../lib/format';
+import { formatBRLCompact, formatDateShort } from '../../lib/format';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore, type GameTab } from '../../store/gameStore';
+import { useUiStore } from '../../store/uiStore';
+import { formatarDia } from '../../world/datas';
 import { UNLOCKS, weekStart } from '../../world/gamification';
+import { METRICA_EM_REAIS, METRICA_LABEL } from '../../world/metas';
 import { cx, TONE_CLASS, TONE_HEX } from '../tones';
 import { Glass, IconButton, ProgressBar } from '../ui';
 import { useClickOutside } from '../useClickOutside';
@@ -18,6 +21,67 @@ const TABS: { id: GameTab; label: string }[] = [
   { id: 'saude', label: 'Saúde' },
 ];
 
+/**
+ * Metas da Prefeitura: só as que estão correndo ou acabaram de ser batidas. Agendadas e expiradas
+ * ficam na Prefeitura — aqui o painel é sobre o que dá para fazer agora.
+ */
+function MetasEmJogo() {
+  const { metas } = useGame();
+  const select = useUiStore((s) => s.select);
+  const closePanel = useGameStore((s) => s.closePanel);
+  const emJogo = metas.filter((m) => m.situacao === 'ativa' || m.situacao === 'cumprida');
+  if (emJogo.length === 0) return null;
+
+  return (
+    <section className="mb-4">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-3">Metas da Prefeitura</p>
+        <button
+          onClick={() => {
+            closePanel();
+            select({ kind: 'prefeitura' });
+          }}
+          className="text-[11px] font-semibold text-brand hover:underline"
+        >
+          Gerenciar
+        </button>
+      </div>
+      <ul className="space-y-2">
+        {emJogo.map(({ meta, progresso, pct, situacao }) => {
+          const ok = situacao === 'cumprida';
+          return (
+            <li key={meta.id} className={cx('rounded-xl border px-3 py-2.5', ok ? 'border-ok/20 bg-ok-soft/50' : 'border-line bg-white')}>
+              <div className="flex items-center gap-2">
+                <span className={cx('grid h-6 w-6 shrink-0 place-items-center rounded-full', ok ? 'bg-ok text-white' : 'bg-brand-soft text-brand')}>
+                  {ok ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : <Flag className="h-3.5 w-3.5" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className={cx('block truncate text-[13px] font-semibold', ok ? 'text-ok' : 'text-ink')}>{meta.titulo}</span>
+                  <span className="block truncate text-[11px] text-ink-3">
+                    {METRICA_LABEL[meta.metrica]}
+                    {meta.nomeResponsavel && ` · ${meta.nomeResponsavel}`} · até {formatarDia(meta.fim)}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <span className="block text-[12px] font-semibold text-ink-2 tabular">
+                    {METRICA_EM_REAIS(meta.metrica) ? formatBRLCompact(progresso) : progresso}/
+                    {METRICA_EM_REAIS(meta.metrica) ? formatBRLCompact(meta.alvo) : meta.alvo}
+                  </span>
+                  <span className={cx('block text-[11px] font-semibold tabular', ok ? 'text-ok' : 'text-ink-3')}>
+                    {ok ? '+' : ''}
+                    {meta.recompensa} XP
+                  </span>
+                </span>
+              </div>
+              {!ok && <ProgressBar value={pct} className="ml-8 mt-2" />}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 function Missoes() {
   const { missions } = useGame();
   const done = missions.filter((m) => m.done).length;
@@ -26,6 +90,7 @@ function Missoes() {
 
   return (
     <div>
+      <MetasEmJogo />
       <div className="mb-3 flex items-center justify-between">
         <p className="text-[12px] text-ink-2">
           Semana de {formatDateShort(new Date(start).toISOString())} a {formatDateShort(new Date(end).toISOString())}

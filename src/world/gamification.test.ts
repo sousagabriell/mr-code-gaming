@@ -124,6 +124,22 @@ describe('XP', () => {
     expect(r.lines.find((l) => l.key === 'atividades')).toMatchObject({ count: 2, xp: 50 });
     expect(r.lines.find((l) => l.key === 'faturas')).toMatchObject({ count: 1, xp: 30 + 75 });
   });
+
+  it('metas cumpridas somam uma linha ao XP', () => {
+    const base = data({ chamados: [chamado(1, { status: 'Resolvido', prioridade: 'Alta' })] });
+    const comMetas = computeXp({ ...base, metasCumpridas: { quantas: 2, xp: 350 } });
+    expect(comMetas.lines.find((l) => l.key === 'metas')).toMatchObject({ count: 2, xp: 350 });
+    expect(comMetas.total).toBe(100 + 350);
+  });
+
+  it('sem meta cumprida, o XP é exatamente o de sempre', () => {
+    // Nenhuma cidade existente pode mudar de nível só porque as metas passaram a existir.
+    const base = data({ chamados: [chamado(1, { status: 'Resolvido', prioridade: 'Alta' })] });
+    const semCampo = computeXp(base);
+    const zerado = computeXp({ ...base, metasCumpridas: { quantas: 0, xp: 0 } });
+    expect(zerado.total).toBe(semCampo.total);
+    expect(zerado.lines.some((l) => l.key === 'metas')).toBe(false);
+  });
 });
 
 describe('níveis', () => {

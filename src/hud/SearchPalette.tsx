@@ -3,6 +3,7 @@ import { BookOpen, Building2, Construction, Receipt, Search, Ticket, User } from
 import { useWorld } from '../hooks/useWorld';
 import { formatBRL } from '../lib/format';
 import { useUiStore, type EntityRef } from '../store/uiStore';
+import { useWikiStore } from '../store/wikiStore';
 import { clienteCode, clienteNome, label, projetoCode } from '../world/status';
 import { norm } from '../world/text';
 import { cx } from './tones';
@@ -16,6 +17,8 @@ interface Result {
   subtitle: string;
   status?: string;
   target: EntityRef;
+  /** Artigo da wiki: além de selecionar a Universidade, entra na biblioteca com ele aberto. */
+  idPagina?: number;
 }
 
 const ICON_CLASS = 'h-4 w-4';
@@ -29,6 +32,7 @@ export function SearchPalette() {
 function PaletteBody() {
   const setOpen = useUiStore((s) => s.setSearchOpen);
   const select = useUiStore((s) => s.select);
+  const enterInterior = useUiStore((s) => s.enterInterior);
   const world = useWorld();
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -102,6 +106,7 @@ function PaletteBody() {
           title: w.titulo,
           subtitle: `por ${w.autorNome}`,
           target: { kind: 'universidade' },
+          idPagina: w.idPagina,
         })),
     ];
 
@@ -119,7 +124,13 @@ function PaletteBody() {
 
   function choose(r: Result | undefined) {
     if (!r) return;
-    select(r.target);
+    // Buscar um artigo leva direto a ele, na estante — não só à sede da Universidade.
+    if (r.idPagina !== undefined) {
+      useWikiStore.getState().abrir(r.idPagina);
+      enterInterior('universidade');
+    } else {
+      select(r.target);
+    }
     setOpen(false);
   }
 

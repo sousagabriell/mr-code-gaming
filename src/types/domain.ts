@@ -145,10 +145,20 @@ export interface DespesaDTO {
   observacoes: string | null;
 }
 
+/**
+ * `GET /Wiki` devolve o DTO inteiro, `conteudo` incluído (é o mesmo shape do `GET /Wiki/{id}` —
+ * conferido no `WikiPaginaService.ObterTodos` do backend). Por isso a biblioteca lê o artigo da
+ * própria lista: buscar o detalhe por id seria um request a mais pelos mesmos bytes.
+ *
+ * O `conteudo` é HTML vindo do editor do MrCodeAdmin (ou texto cru, nos artigos antigos) — passa
+ * por `lib/sanitizeHtml.ts` antes de ir para a tela.
+ */
 export interface WikiPaginaDTO {
   idPagina: number;
   idProjeto: number | null;
+  projetoNome: string | null;
   titulo: string;
+  conteudo: string;
   autorNome: string;
   dataCriacao: string;
   dataAtualizacao: string;

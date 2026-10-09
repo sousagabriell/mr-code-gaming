@@ -111,7 +111,7 @@ function pickTracked(selected: EntityRef | null, world: World): Tracked | null {
       const f = urgentFatura(world);
       return f ? faturaTracked(f.idFatura) : null;
     }
-    case 'prefeitura': {
+    case 'escritorio': {
       const c = world.contratos.find((x) => x.status === 'AguardandoAprovacao') ?? world.contratos.find((x) => x.status === 'Ativo');
       return c ? contratoTracked(c.idCliente, c.idContrato) : null;
     }

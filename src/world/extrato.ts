@@ -37,6 +37,16 @@ export function mesParam({ ano, mes }: Mes): string {
   return `${ano}-${String(mes).padStart(2, '0')}`;
 }
 
+/** Os 12 meses de um ano, com o rótulo curto — a grade do calendário de parede. */
+export function mesesDoAno(ano: number): { mes: Mes; curto: string }[] {
+  const fmt = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
+  return Array.from({ length: 12 }, (_, i) => {
+    // O `Intl` devolve "jan." em pt-BR; o ponto não cabe num botão de 3 letras.
+    const curto = fmt.format(new Date(ano, i, 1)).replace('.', '');
+    return { mes: { ano, mes: i + 1 }, curto: curto.charAt(0).toUpperCase() + curto.slice(1) };
+  });
+}
+
 // ─── Recorte e filtros ──────────────────────────────────────────────────────
 
 /** Fatura entra pelo vencimento, despesa pela data do lançamento. */

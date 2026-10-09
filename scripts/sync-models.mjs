@@ -52,19 +52,18 @@ const KITS = {
     ],
   },
   /**
-   * Móveis da agência do Banco Central (interior). Este kit guarda os GLB em "GLTF format" — os
-   * outros usam "GLB format". O kit tem 140 peças; aqui só as que a agência monta.
+   * Móveis dos cenários internos de landmark — a agência do BC e a biblioteca da UN. Este kit guarda
+   * os GLB em "GLTF format"; os outros usam "GLB format". O kit tem 140 peças, aqui só as que as
+   * duas salas montam.
    */
   furniture: {
     dir: 'kenney_furniture-kit',
     sub: ['Models', 'GLTF format'],
     models: [
-      // casca da sala
+      // casca das salas (as paredes são lajes lisas desenhadas na cena — ver world/interior.ts)
       'floorFull',
-      'wall',
-      'wallWindow',
-      'wallDoorway',
       'rugRounded',
+      'rugRectangle',
       // balcão de atendimento
       'kitchenBar',
       'kitchenBarEnd',
@@ -82,6 +81,12 @@ const KITS = {
       'loungeChair',
       'tableCoffee',
       'pottedPlant',
+      // biblioteca da Universidade: estantes decorativas e o canto de leitura
+      // (a estante funcional é montada com caixas — ver world/universidade.ts)
+      'bookcaseOpen',
+      'bookcaseClosedWide',
+      'chairModernCushion',
+      'lampRoundFloor',
       // detalhes
       'lampSquareCeiling',
       'coatRackStanding',

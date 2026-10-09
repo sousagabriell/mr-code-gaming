@@ -47,6 +47,14 @@ export function stripHtml(html: string | null | undefined): string {
   return (doc.body.textContent ?? '').trim();
 }
 
+/** Primeira linha do conteúdo, numa linha só — o resumo do artigo no índice da biblioteca. */
+export function resumo(html: string | null | undefined, limite = 140): string {
+  // `textContent` cola blocos vizinhos ("…o tempo todoTermoO que é"): separa antes de achatar.
+  const separado = (html ?? '').replace(/<\/(p|h[1-6]|li|td|th|tr|blockquote|pre|div)>/gi, ' $&');
+  const texto = stripHtml(separado).replace(/\s+/g, ' ');
+  return texto.length > limite ? `${texto.slice(0, limite).trimEnd()}…` : texto;
+}
+
 /** Texto digitado → HTML seguro (o MrCodeAdmin renderiza o HTML dos comentários). */
 export function textToHtml(text: string): string {
   const escaped = text

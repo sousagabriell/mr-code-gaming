@@ -11,6 +11,7 @@ import {
   OVERVIEW_DISTANCE,
   verticalRoadXs,
 } from './layout';
+import { LANDMARK_KINDS } from '../store/uiStore';
 import { armoredRoute, pathLength, pointAt, walkerRoute } from './routes';
 import { chamadoLifecycle, faturaLifecycle } from './lifecycle';
 import { entityPosition } from './positions';
@@ -180,6 +181,29 @@ describe('posição das entidades', () => {
     const layout = buildCityLayout([], NO_CONTRATOS, [], []);
     expect(entityPosition({ kind: 'banco' }, layout, { chamados: [], faturas: [] })).toEqual(
       layout.landmarks.find((l) => l.kind === 'banco')!.position
+    );
+  });
+
+  it('a fileira cívica é uma fileira: todo prédio no mesmo z, sem repetir x', () => {
+    const { landmarks } = buildCityLayout([], NO_CONTRATOS, [], []);
+    expect(landmarks).toHaveLength(LANDMARK_KINDS.length);
+    expect(new Set(landmarks.map((l) => l.position[2])).size).toBe(1);
+    expect(new Set(landmarks.map((l) => l.position[0])).size).toBe(landmarks.length);
+  });
+
+  it('todo prédio cívico está dentro do alcance do pan', () => {
+    // Sem isto, o Escritório (x = 12,5) ficaria fora do boundary do controle de câmera.
+    const { landmarks, bounds } = buildCityLayout([], NO_CONTRATOS, [], []);
+    for (const l of landmarks) {
+      expect(l.position[0], l.kind).toBeGreaterThanOrEqual(bounds.minX);
+      expect(l.position[0], l.kind).toBeLessThanOrEqual(bounds.maxX);
+    }
+  });
+
+  it('a equipe mora no Escritório, não na Prefeitura (que virou gerenciador de metas)', () => {
+    const layout = buildCityLayout([], NO_CONTRATOS, [], []);
+    expect(entityPosition({ kind: 'colaborador', id: 1 }, layout, { chamados: [], faturas: [] })).toEqual(
+      layout.landmarks.find((l) => l.kind === 'escritorio')!.position
     );
   });
 });

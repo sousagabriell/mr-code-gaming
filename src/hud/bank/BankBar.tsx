@@ -1,4 +1,4 @@
-import { ArrowLeft, Landmark, Plus, Receipt, Repeat } from 'lucide-react';
+import { ArrowLeft, Landmark, Repeat } from 'lucide-react';
 import { useGerarDespesasRecorrentes, useGerarFaturasRecorrentes } from '../../api/mutations';
 import { useWorld } from '../../hooks/useWorld';
 import { formatBRL } from '../../lib/format';
@@ -10,8 +10,7 @@ import { Button, Glass, IconTile } from '../ui';
 /** Canto inferior esquerdo da agência: identidade, saldo realizado e as ações que não são de linha. */
 export function BankBar() {
   const { faturas, despesas } = useWorld();
-  const exitBanco = useUiStore((s) => s.exitBanco);
-  const openDrawer = useUiStore((s) => s.openDrawer);
+  const exitInterior = useUiStore((s) => s.exitInterior);
   const gerarFaturas = useGerarFaturasRecorrentes();
   const gerarDespesas = useGerarDespesasRecorrentes();
   const saldo = computeSaldo(faturas, despesas);
@@ -33,15 +32,10 @@ export function BankBar() {
         </div>
       </div>
 
+      {/* Lançar fatura/despesa fica no cabeçalho do extrato, junto da lista a que pertence. */}
       <div className="flex flex-wrap gap-2">
-        <Button variant="secondary" onClick={() => exitBanco()}>
+        <Button variant="secondary" onClick={() => exitInterior()}>
           <ArrowLeft className="h-3.5 w-3.5" /> Cidade
-        </Button>
-        <Button variant="primary" onClick={() => openDrawer({ form: 'nova-fatura' })}>
-          <Plus className="h-3.5 w-3.5" /> Fatura
-        </Button>
-        <Button variant="secondary" onClick={() => openDrawer({ form: 'nova-despesa' })}>
-          <Receipt className="h-3.5 w-3.5" /> Despesa
         </Button>
         <Button
           variant="ghost"

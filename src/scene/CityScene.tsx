@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { AdaptiveDpr, PerformanceMonitor } from '@react-three/drei';
 import { EffectComposer, N8AO } from '@react-three/postprocessing';
 import { BuildGhost } from './BuildGhost';
@@ -21,12 +21,14 @@ import { useReducedMotion } from '../hooks/useReducedMotion';
 import { PerfProbe } from './PerfProbe';
 import { KanbanYard } from './yard/KanbanYard';
 import { BankBranch } from './bank/BankBranch';
+import { Library } from './universidade/Library';
 import { ChamadoTruck } from './vehicles/ChamadoTruck';
 import { EventVehicles } from './vehicles/EventVehicles';
 import { useCityEventDetector } from './vehicles/useCityEventDetector';
 import { Walkers } from './Walkers';
 import { useCityLayout, useWorld } from '../hooks/useWorld';
 import { useUiStore } from '../store/uiStore';
+import { useWikiStore } from '../store/wikiStore';
 import { useGame } from '../hooks/useGame';
 import { CityDecor } from './CityDecor';
 import { Weather } from './Weather';
@@ -114,10 +116,24 @@ function City() {
   );
 }
 
-/** Luz, céu e câmera são comuns; o conteúdo alterna entre cidade, pátio de obras e agência. */
+/**
+ * Só em dev: publica o estado do R3F para os testes de navegador poderem mirar objetos 3D (clicar
+ * numa lombada da estante, por exemplo). Mesmo papel do `window.__ui` do `uiStore` — e necessário
+ * porque a câmera do R3F **não** fica dentro da cena e o canvas não expõe a raiz, então de fora não
+ * há como alcançar o grafo.
+ */
+function DevHandle() {
+  const state = useThree();
+  useEffect(() => {
+    (window as unknown as { __r3f?: unknown }).__r3f = state;
+  }, [state]);
+  return null;
+}
+
+/** Luz, céu e câmera são comuns; o conteúdo alterna entre cidade, pátio de obras e interiores. */
 function Scene() {
   const yard = useUiStore((s) => s.yard);
-  const banco = useUiStore((s) => s.banco);
+  const interior = useUiStore((s) => s.interior);
   // O clima é a saúde da cidade (gamificação): sol, nublado, chuva ou tempestade.
   const { health } = useGame();
   const style = WEATHER_STYLE[health.weather];
@@ -149,9 +165,17 @@ function Scene() {
       />
 
       <CameraRig />
-      {/* O clima é da cidade: dentro da agência (interior) não chove. */}
-      {!banco && <Weather kind={health.weather} reduced={reduced} />}
-      {banco ? <BankBranch /> : yard ? <KanbanYard /> : <City />}
+      {/* O clima é da cidade: dentro de um interior não chove. */}
+      {!interior && <Weather kind={health.weather} reduced={reduced} />}
+      {interior === 'banco' ? (
+        <BankBranch />
+      ) : interior === 'universidade' ? (
+        <Library />
+      ) : yard ? (
+        <KanbanYard />
+      ) : (
+        <City />
+      )}
     </>
   );
 }
@@ -172,7 +196,10 @@ export function CityScene() {
         dpr={dpr}
         camera={{ fov: 32, position: OVERVIEW_CAMERA.position, near: 0.5, far: 220 }}
         onPointerMissed={(e) => {
-          if (e.button === 0) clearSelection();
+          if (e.button !== 0) return;
+          // Na biblioteca não há entidade selecionada: clicar no chão fecha o artigo aberto.
+          if (useUiStore.getState().interior === 'universidade') useWikiStore.getState().voltar();
+          else clearSelection();
         }}
       >
         <PerformanceMonitor
@@ -186,6 +213,7 @@ export function CityScene() {
           }}
         />
         <AdaptiveDpr pixelated={false} />
+        {import.meta.env.DEV && <DevHandle />}
         {perfEnabled() && <PerfProbe />}
         <Scene />
         {ao && (

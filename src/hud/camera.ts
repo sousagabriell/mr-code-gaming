@@ -2,7 +2,7 @@ import { CameraControlsImpl } from '@react-three/drei';
 import { qk, queryClient } from '../api/queryClient';
 import { useUiStore } from '../store/uiStore';
 import type { KanbanColunaDTO } from '../types/domain';
-import { BANK_CAMERA } from '../world/bank';
+import { INTERIOR_CAMERA } from '../world/interiors';
 import { OVERVIEW_CAMERA } from '../world/layout';
 import { buildYardLayout, YARD_CAMERA } from '../world/yard';
 
@@ -33,11 +33,12 @@ export function setPanEnabled(controls: CameraControlsImpl | null, on: boolean) 
   controls.touches.one = on ? CameraControlsImpl.ACTION.TOUCH_TRUCK : CameraControlsImpl.ACTION.NONE;
 }
 
-/** Botão ⌂ / tecla H: reenquadra o cenário atual — cidade, pátio ou agência. */
+/** Botão ⌂ / tecla H: reenquadra o cenário atual — cidade, pátio, agência ou biblioteca. */
 export function goHome(controls: CameraControlsImpl | null) {
-  const { yard, banco } = useUiStore.getState();
-  if (banco) {
-    controls?.setLookAt(...BANK_CAMERA.position, ...BANK_CAMERA.target, true);
+  const { yard, interior } = useUiStore.getState();
+  if (interior) {
+    const cam = INTERIOR_CAMERA[interior];
+    controls?.setLookAt(...cam.position, ...cam.target, true);
     return;
   }
   const colunas = yard ? queryClient.getQueryData<KanbanColunaDTO[]>(qk.kanban(yard)) : undefined;

@@ -4,7 +4,6 @@ import { useCancelarFatura, useEstornarFatura, usePagarFatura } from '../../api/
 import { useFinanceiroResumoQuery } from '../../api/queries';
 import { useWorld } from '../../hooks/useWorld';
 import { formatDate } from '../../lib/format';
-import { useUiStore } from '../../store/uiStore';
 import type { FaturaDTO, FaturaStatus } from '../../types/domain';
 import {
   agruparPorDia,
@@ -33,14 +32,16 @@ export function FaturasExtrato({
   filtros,
   setFiltros,
   agora,
+  onAbrir,
 }: {
   mes: Mes;
   filtros: ExtratoFiltros;
   setFiltros: (patch: Partial<ExtratoFiltros>) => void;
   agora: Date;
+  /** Abre a leitura do lançamento no painel de detalhe (à esquerda do extrato). */
+  onAbrir: (id: number) => void;
 }) {
   const { faturas } = useWorld();
-  const openDrawer = useUiStore((s) => s.openDrawer);
   const { data: resumo } = useFinanceiroResumoQuery(mesParam(mes));
   const pagar = usePagarFatura();
   const estornar = useEstornarFatura();
@@ -107,7 +108,7 @@ export function FaturasExtrato({
                     valor={f.valor}
                     sinal={f.status === 'Pago' ? '+' : ''}
                     chip={<StatusChip status={f.status} className="mt-0.5" />}
-                    onClick={() => openDrawer({ form: 'editar-fatura', idFatura: f.idFatura })}
+                    onClick={() => onAbrir(f.idFatura)}
                     acoes={
                       <>
                         {emAberto && (

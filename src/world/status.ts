@@ -64,7 +64,8 @@ export const LANDMARK_META: Record<LandmarkKind, { code: string; nome: string; m
   datacenter: { code: 'DC', nome: 'Data Center', modulo: 'Observabilidade' },
   banco: { code: 'BC', nome: 'Banco Central', modulo: 'Financeiro' },
   universidade: { code: 'UN', nome: 'Universidade', modulo: 'Wiki' },
-  prefeitura: { code: 'PF', nome: 'Prefeitura', modulo: 'Equipe e contratos' },
+  prefeitura: { code: 'PF', nome: 'Prefeitura', modulo: 'Metas e XP' },
+  escritorio: { code: 'ES', nome: 'Escritório', modulo: 'Equipe e contratos' },
 };
 
 export function isChamadoAberto(c: Pick<ChamadoDTO, 'status'>): boolean {

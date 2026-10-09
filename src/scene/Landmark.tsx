@@ -6,6 +6,7 @@ import type { LandmarkKind } from '../store/uiStore';
 import type { Vec3 } from '../world/layout';
 import { COLORS } from '../world/colors';
 import { useUiStore } from '../store/uiStore';
+import { useMetasAtivas } from '../hooks/useMetas';
 import { useWorld } from '../hooks/useWorld';
 import { formatBRLCompact } from '../lib/format';
 import { bancoHealth, datacenterHealth } from '../world/health';
@@ -20,6 +21,7 @@ import { motion } from './motion';
 
 export function Landmark({ kind, position }: { kind: LandmarkKind; position: Vec3 }) {
   const { observabilidade, faturas, despesas, wikiPaginas, colaboradores, contratos } = useWorld();
+  const metasAtivas = useMetasAtivas();
   const select = useUiStore((s) => s.select);
   const isSelected = useUiStore((s) => s.selected?.kind === kind);
   const { hovered, bind } = useHover();
@@ -41,10 +43,13 @@ export function Landmark({ kind, position }: { kind: LandmarkKind; position: Vec
     accent = health.color;
     pulse = health.pulse;
     metric = formatBRLCompact(health.saldo);
-  } else if (kind === 'prefeitura') {
+  } else if (kind === 'escritorio') {
     accent = COLORS.brandBlue;
     const ativos = contratos.filter((c) => c.status === 'Ativo').length;
     metric = colaboradores.length > 0 ? `${colaboradores.filter((c) => c.ativo).length} pessoas · ${ativos} contratos` : `${ativos} contratos ativos`;
+  } else if (kind === 'prefeitura') {
+    accent = COLORS.brandBlue;
+    metric = metasAtivas === 0 ? 'sem metas em andamento' : `${metasAtivas} meta${metasAtivas === 1 ? '' : 's'} em andamento`;
   }
 
   useFrame(({ clock }) => {

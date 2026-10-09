@@ -1,8 +1,20 @@
 import type { CameraControlsImpl } from '@react-three/drei';
 import { create } from 'zustand';
+import { isInteriorKind, type InteriorKind } from '../world/interiors';
+import { useBankStore } from './bankStore';
+import { useWikiStore } from './wikiStore';
 
-export type LandmarkKind = 'datacenter' | 'banco' | 'universidade' | 'prefeitura';
-export const LANDMARK_KINDS: LandmarkKind[] = ['datacenter', 'banco', 'universidade', 'prefeitura'];
+export type LandmarkKind = 'datacenter' | 'banco' | 'universidade' | 'prefeitura' | 'escritorio';
+/** A ordem alimenta o seletor de distrito e o modo lista — o novo entra no fim. */
+export const LANDMARK_KINDS: LandmarkKind[] = ['datacenter', 'banco', 'universidade', 'prefeitura', 'escritorio'];
+
+/**
+ * Cenários internos de landmark (agência do BC, biblioteca da UN) — ver `world/interiors.ts`. É
+ * **um campo** em vez de uma flag por cenário porque todos se excluem entre si (e com o `yard`):
+ * com flags separadas, cada `enter*` teria de zerar as outras e o terceiro cenário multiplicaria o
+ * erro.
+ */
+export type { InteriorKind };
 
 export type EntityRef =
   | { kind: 'cliente'; id: number }
@@ -23,11 +35,11 @@ export type DrawerState =
   | { form: 'editar-atividade'; idProjeto: number; idAtividade: number }
   | { form: 'nova-coluna'; idProjeto: number }
   | { form: 'editar-coluna'; idProjeto: number; idColuna: number }
+  // Fatura e despesa não entram aqui: os formulários do financeiro são telas do próprio extrato
+  // da agência (§10.3) — um drawer lateral cairia em cima dele.
   | { form: 'converter-chamado'; idChamado: number }
-  | { form: 'nova-fatura' }
-  | { form: 'editar-fatura'; idFatura: number }
-  | { form: 'nova-despesa' }
-  | { form: 'editar-despesa'; idDespesa: number };
+  | { form: 'nova-meta' }
+  | { form: 'editar-meta'; id: string };
 
 interface UiState {
   selected: EntityRef | null;
@@ -60,13 +72,13 @@ interface UiState {
   exitYard: (focusProject?: boolean) => void;
 
   /**
-   * Agência do Banco Central aberta (o extrato). É o terceiro cenário, ao lado da cidade e do
-   * pátio — e **excludente** com o `yard`: entrar num fecha o outro.
+   * Interior de landmark aberto (agência do BC, biblioteca da UN) — ou null na cidade. **Excludente**
+   * com o `yard`: entrar num fecha o outro.
    */
-  banco: boolean;
-  enterBanco: () => void;
-  /** selectBanco=false volta sem selecionar o landmark (ex.: ir para a visão geral). */
-  exitBanco: (selectBanco?: boolean) => void;
+  interior: InteriorKind | null;
+  enterInterior: (kind: InteriorKind) => void;
+  /** selectLandmark=false volta sem selecionar a sede (ex.: ir para a visão geral). */
+  exitInterior: (selectLandmark?: boolean) => void;
 
   /** Uma caixa do pátio está segurando o ponteiro (do pointerdown ao pointerup) — câmera travada. */
   dragging: boolean;
@@ -98,7 +110,7 @@ export function entityKey(entity: EntityRef): string {
   return 'id' in entity ? `${entity.kind}:${entity.id}` : entity.kind;
 }
 
-function writeUrl(param: 'sel' | 'yard' | 'banco', value: string | null) {
+function writeUrl(param: 'sel' | 'yard' | 'interior', value: string | null) {
   const url = new URL(window.location.href);
   if (value) url.searchParams.set(param, value);
   else url.searchParams.delete(param);
@@ -107,7 +119,7 @@ function writeUrl(param: 'sel' | 'yard' | 'banco', value: string | null) {
 
 const writeSelToUrl = (entity: EntityRef | null) => writeUrl('sel', entity ? entityKey(entity) : null);
 
-function readUrl(param: 'sel' | 'yard' | 'banco'): string | null {
+function readUrl(param: 'sel' | 'yard' | 'interior'): string | null {
   if (typeof window === 'undefined') return null;
   return new URL(window.location.href).searchParams.get(param);
 }
@@ -117,9 +129,17 @@ function readYardFromUrl(): number | null {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
-/** `?banco=1` abre direto na agência — mas o pátio tem precedência se a URL trouxer os dois. */
-function readBancoFromUrl(): boolean {
-  return readUrl('banco') === '1' && readYardFromUrl() === null;
+/** `?interior=banco` abre direto no cenário — mas o pátio tem precedência se a URL trouxer os dois. */
+function readInteriorFromUrl(): InteriorKind | null {
+  if (readYardFromUrl() !== null) return null;
+  const value = readUrl('interior');
+  return isInteriorKind(value) ? value : null;
+}
+
+/** Cada cenário interno tem um painel com estado próprio; sair zera o painel de onde se saiu. */
+function limparPainelDoInterior(kind: InteriorKind) {
+  if (kind === 'banco') useBankStore.getState().limpar();
+  else useWikiStore.getState().limpar();
 }
 
 function readSelFromUrl(): EntityRef | null {
@@ -134,10 +154,13 @@ export const useUiStore = create<UiState>((set) => ({
   focusNonce: 0,
   select: (entity) => {
     // Selecionar algo da cidade (busca, notificação, distrito) estando num cenário interno = voltar.
-    const { yard, banco } = useUiStore.getState();
+    const { yard, interior } = useUiStore.getState();
     const leaveYard = yard !== null && entity.kind !== 'atividade';
     if (leaveYard) writeUrl('yard', null);
-    if (banco) writeUrl('banco', null);
+    if (interior) {
+      writeUrl('interior', null);
+      limparPainelDoInterior(interior);
+    }
     writeSelToUrl(entity);
     set((s) => ({
       selected: entity,
@@ -145,9 +168,9 @@ export const useUiStore = create<UiState>((set) => ({
       buildMode: false,
       // Colaborador só faz sentido acompanhando o pedestre; o resto começa parado.
       follow: entity.kind === 'colaborador',
-      ...(leaveYard || banco ? { drawer: null } : {}),
+      ...(leaveYard || interior ? { drawer: null } : {}),
       ...(leaveYard ? { yard: null } : {}),
-      ...(banco ? { banco: false } : {}),
+      ...(interior ? { interior: null } : {}),
     }));
   },
   clearSelection: () => {
@@ -174,11 +197,11 @@ export const useUiStore = create<UiState>((set) => ({
   yard: readYardFromUrl(),
   enterYard: (idProjeto, then) => {
     writeUrl('yard', String(idProjeto));
-    writeUrl('banco', null);
+    writeUrl('interior', null);
     writeSelToUrl(then ?? null);
     set((s) => ({
       yard: idProjeto,
-      banco: false,
+      interior: null,
       selected: then ?? null,
       focusNonce: s.focusNonce + 1,
       buildMode: false,
@@ -194,19 +217,23 @@ export const useUiStore = create<UiState>((set) => ({
     set((s) => ({ yard: null, selected: back, focusNonce: s.focusNonce + 1, drawer: null }));
   },
 
-  banco: readBancoFromUrl(),
-  enterBanco: () => {
-    writeUrl('banco', '1');
+  interior: readInteriorFromUrl(),
+  enterInterior: (kind) => {
+    writeUrl('interior', kind);
     writeUrl('yard', null);
-    // Dentro da agência não há entidade selecionada: o painel do extrato ocupa a coluna da direita.
+    // Dentro do cenário não há entidade selecionada: o painel do interior ocupa a coluna da direita.
     writeSelToUrl(null);
-    set((s) => ({ banco: true, yard: null, selected: null, focusNonce: s.focusNonce + 1, buildMode: false, drawer: null }));
+    set((s) => ({ interior: kind, yard: null, selected: null, focusNonce: s.focusNonce + 1, buildMode: false, drawer: null }));
   },
-  exitBanco: (selectBanco = true) => {
-    writeUrl('banco', null);
-    const back: EntityRef | null = selectBanco ? { kind: 'banco' } : null;
+  exitInterior: (selectLandmark = true) => {
+    const { interior } = useUiStore.getState();
+    writeUrl('interior', null);
+    // Volta para a cidade com a sede de onde saiu selecionada.
+    const back: EntityRef | null = interior && selectLandmark ? { kind: interior } : null;
     writeSelToUrl(back);
-    set((s) => ({ banco: false, selected: back, focusNonce: s.focusNonce + 1, drawer: null }));
+    // O painel recomeça limpo na próxima visita (mês corrente / nenhum livro aberto).
+    if (interior) limparPainelDoInterior(interior);
+    set((s) => ({ interior: null, selected: back, focusNonce: s.focusNonce + 1, drawer: null }));
   },
 
   dragging: false,

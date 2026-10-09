@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { useAtualizarDespesa, useCriarDespesa } from '../../api/mutations';
 import { useWorld } from '../../hooks/useWorld';
 import { toDateInput } from '../../lib/format';
-import { useUiStore } from '../../store/uiStore';
 import { categoriasDe } from '../../world/extrato';
 import { Button } from '../ui';
 import { Field, FormError, inputClass } from './fields';
@@ -24,10 +23,16 @@ type FormInput = z.input<typeof schema>;
 type FormValues = z.output<typeof schema>;
 const FIELDS = ['descricao', 'categoria', 'valor', 'dataDespesa', 'recorrente', 'observacoes'];
 
-/** Lançar ou corrigir uma despesa — o que sai do caixa da cidade. */
-export function DespesaForm({ idDespesa }: { idDespesa?: number }) {
+/** Em função de módulo: `new Date()` solto no corpo do componente é impuro durante o render. */
+const hoje = () => toDateInput(new Date());
+
+/**
+ * Lançar ou corrigir uma despesa — o que sai do caixa da cidade. Mora **dentro** do extrato da
+ * agência (§10.3), não num painel por cima dele. `onClose(true)` avisa que **salvou** — é o que
+ * dispara o pisca-pisca no caixa; o Cancelar chama `onClose()` sem argumento.
+ */
+export function DespesaForm({ idDespesa, onClose }: { idDespesa?: number; onClose: (salvou?: boolean) => void }) {
   const { despesas } = useWorld();
-  const closeDrawer = useUiStore((s) => s.closeDrawer);
   const criar = useCriarDespesa();
   const atualizar = useAtualizarDespesa();
   const [formError, setFormError] = useState<string | null>(null);
@@ -47,7 +52,7 @@ export function DespesaForm({ idDespesa }: { idDespesa?: number }) {
       descricao: atual?.descricao ?? '',
       categoria: atual?.categoria ?? '',
       valor: atual ? String(atual.valor) : '',
-      dataDespesa: atual ? atual.dataDespesa.slice(0, 10) : toDateInput(new Date()),
+      dataDespesa: atual ? atual.dataDespesa.slice(0, 10) : hoje(),
       recorrente: atual?.recorrente ?? false,
       observacoes: atual?.observacoes ?? '',
     },
@@ -66,7 +71,7 @@ export function DespesaForm({ idDespesa }: { idDespesa?: number }) {
     try {
       if (idDespesa) await atualizar.mutateAsync({ id: idDespesa, dto });
       else await criar.mutateAsync(dto);
-      closeDrawer();
+      onClose(true);
     } catch (err) {
       setFormError(applyServerErrors(err, setError, FIELDS));
     }
@@ -107,7 +112,7 @@ export function DespesaForm({ idDespesa }: { idDespesa?: number }) {
         </Field>
       </div>
       <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
-        <Button type="button" variant="ghost" onClick={closeDrawer}>
+        <Button type="button" variant="ghost" onClick={() => onClose()}>
           Cancelar
         </Button>
         <Button type="submit" variant="primary" disabled={isSubmitting}>

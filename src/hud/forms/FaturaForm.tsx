@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { useAtualizarFatura, useCriarFatura } from '../../api/mutations';
 import { useWorld } from '../../hooks/useWorld';
 import { toDateInput } from '../../lib/format';
-import { useUiStore } from '../../store/uiStore';
 import { clienteCode, clienteNome, projetoCode } from '../../world/status';
 import { Button } from '../ui';
 import { Field, FormError, inputClass } from './fields';
@@ -34,19 +33,26 @@ const FIELDS = ['idCliente', 'idContrato', 'idProjeto', 'descricao', 'valor', 'd
 const daysFromNow = (n: number) => toDateInput(new Date(Date.now() + n * 86_400_000));
 const opcional = (v: string) => (v ? Number(v) : null);
 
-/** Lançar ou corrigir uma fatura — o "a receber" da cidade. */
-export function FaturaForm({ idFatura }: { idFatura?: number }) {
+/**
+ * Lançar ou corrigir uma fatura — o "a receber" da cidade. Mora **dentro** do extrato da agência
+ * (§10.3), não num painel por cima dele. `onClose(true)` avisa que **salvou** — é o que dispara o
+ * pisca-pisca no caixa; o Cancelar chama `onClose()` sem argumento.
+ */
+export function FaturaForm({ idFatura, onClose }: { idFatura?: number; onClose: (salvou?: boolean) => void }) {
   const { clientes, contratos, projetos, faturas } = useWorld();
-  const closeDrawer = useUiStore((s) => s.closeDrawer);
   const criar = useCriarFatura();
   const atualizar = useAtualizarFatura();
   const [formError, setFormError] = useState<string | null>(null);
 
   const atual = idFatura ? faturas.find((f) => f.idFatura === idFatura) : undefined;
 
+  // Contrato e projeto dependem do cliente escolhido. O valor vem de um estado próprio em vez do
+  // `watch` do react-hook-form: a API devolve uma função nova a cada render e o compilador do React
+  // desiste de memoizar o componente inteiro por causa dela.
+  const [idCliente, setIdCliente] = useState(atual?.idCliente ?? 0);
+
   const {
     register,
-    watch,
     handleSubmit,
     setError,
     formState: { errors, isSubmitting },
@@ -64,10 +70,9 @@ export function FaturaForm({ idFatura }: { idFatura?: number }) {
     },
   });
 
-  // Contrato e projeto só fazem sentido dentro do cliente escolhido.
-  const idCliente = Number(watch('idCliente'));
   const contratosDoCliente = contratos.filter((c) => c.idCliente === idCliente);
   const projetosDoCliente = projetos.filter((p) => p.idCliente === idCliente);
+  const campoCliente = register('idCliente');
 
   async function onSubmit(values: FormValues) {
     setFormError(null);
@@ -84,7 +89,7 @@ export function FaturaForm({ idFatura }: { idFatura?: number }) {
     try {
       if (idFatura) await atualizar.mutateAsync({ id: idFatura, dto });
       else await criar.mutateAsync(dto);
-      closeDrawer();
+      onClose(true);
     } catch (err) {
       setFormError(applyServerErrors(err, setError, FIELDS));
     }
@@ -103,7 +108,15 @@ export function FaturaForm({ idFatura }: { idFatura?: number }) {
           </div>
         )}
         <Field label="Cliente" required error={errors.idCliente?.message}>
-          <select className={inputClass} aria-invalid={!!errors.idCliente} {...register('idCliente')}>
+          <select
+            className={inputClass}
+            aria-invalid={!!errors.idCliente}
+            {...campoCliente}
+            onChange={(e) => {
+              campoCliente.onChange(e);
+              setIdCliente(Number(e.target.value));
+            }}
+          >
             <option value="">Escolha…</option>
             {ativos.map((c) => (
               <option key={c.idCliente} value={c.idCliente}>
@@ -153,7 +166,7 @@ export function FaturaForm({ idFatura }: { idFatura?: number }) {
         </Field>
       </div>
       <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
-        <Button type="button" variant="ghost" onClick={closeDrawer}>
+        <Button type="button" variant="ghost" onClick={() => onClose()}>
           Cancelar
         </Button>
         <Button type="submit" variant="primary" disabled={isSubmitting}>

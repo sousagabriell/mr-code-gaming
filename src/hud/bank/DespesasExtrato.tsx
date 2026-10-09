@@ -3,7 +3,6 @@ import { Check, Clock, Repeat, RotateCcw } from 'lucide-react';
 import { useEstornarDespesa, usePagarDespesa } from '../../api/mutations';
 import { useWorld } from '../../hooks/useWorld';
 import { formatDate } from '../../lib/format';
-import { useUiStore } from '../../store/uiStore';
 import type { DespesaDTO, DespesaStatus } from '../../types/domain';
 import {
   agruparPorDia,
@@ -26,14 +25,16 @@ export function DespesasExtrato({
   filtros,
   setFiltros,
   agora,
+  onAbrir,
 }: {
   mes: Mes;
   filtros: ExtratoFiltros;
   setFiltros: (patch: Partial<ExtratoFiltros>) => void;
   agora: Date;
+  /** Abre a leitura do lançamento no painel de detalhe (à esquerda do extrato). */
+  onAbrir: (id: number) => void;
 }) {
   const { despesas } = useWorld();
-  const openDrawer = useUiStore((s) => s.openDrawer);
   const pagar = usePagarDespesa();
   const estornar = useEstornarDespesa();
   const busy = pagar.isPending || estornar.isPending;
@@ -112,7 +113,7 @@ export function DespesasExtrato({
                         <StatusChip status={d.status} />
                       </span>
                     }
-                    onClick={() => openDrawer({ form: 'editar-despesa', idDespesa: d.idDespesa })}
+                    onClick={() => onAbrir(d.idDespesa)}
                     acoes={
                       pago ? (
                         <AcaoLinha label="Estornar pagamento" disabled={busy} onClick={() => estornar.mutate({ id: d.idDespesa })}>

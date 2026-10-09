@@ -33,7 +33,8 @@ export function entityPosition(
       return cliente(fatura?.idCliente) ?? landmark('banco');
     }
     case 'colaborador':
-      return landmark('prefeitura');
+      // A equipe mora no Escritório; a Prefeitura cuida das metas.
+      return landmark('escritorio');
     default:
       return landmark(ref.kind);
   }

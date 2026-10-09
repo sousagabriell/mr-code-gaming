@@ -2,8 +2,10 @@ import { useEffect, useRef } from 'react';
 import { playSfx } from '../lib/sfx';
 import { useAuthStore } from '../store/authStore';
 import { loadProgress, saveProgress, useGameStore } from '../store/gameStore';
+import { useMetasStore } from '../store/metasStore';
 import { toast } from '../store/toastStore';
 import { UNLOCKS, type XpLine } from '../world/gamification';
+import { metasParaRegistrar } from '../world/metas';
 import type { GameState } from './useGame';
 
 /**
@@ -41,6 +43,9 @@ export function useGameProgress(game: GameState) {
       // Durante a sessão: XP ganho por categoria.
       let ganhou = false;
       for (const line of game.xp.lines) {
+        // O bônus de meta já é anunciado com o nome da meta, logo abaixo — sem isto, sairiam dois
+        // toasts para o mesmo acontecimento.
+        if (line.key === 'metas') continue;
         const antes = baseline.current.lines.find((l) => l.key === line.key)?.xp ?? 0;
         if (line.xp > antes) {
           toast.xp(`+${line.xp - antes} XP`, line.label);
@@ -57,6 +62,18 @@ export function useGameProgress(game: GameState) {
       novas.forEach((k) => toast.xp('Conquista desbloqueada', game.conquistas.find((c) => c.key === k)?.nome));
       if (novas.length && sound) setTimeout(() => playSfx('unlock'), 350);
       novas.forEach((k) => unlocked.add(k));
+    }
+
+    /**
+     * Metas batidas: registra o pagamento **uma vez**. É o registro que separa "recompensa" de
+     * "número que oscila" — o progresso é recalculado a cada refetch, e um chamado reaberto sai de
+     * "resolvidos". Sem gravar, o bônus seria pago de novo a cada carga ou sumiria depois.
+     */
+    const agora = new Date().toISOString();
+    for (const { meta } of metasParaRegistrar(game.metas)) {
+      useMetasStore.getState().registrarCumprida(meta, agora);
+      toast.xp(`Meta cumprida · +${meta.recompensa} XP`, meta.titulo);
+      if (sound) setTimeout(() => playSfx('unlock'), 200);
     }
 
     baseline.current = { lines: game.xp.lines, level };

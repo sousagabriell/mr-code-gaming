@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { formatBRLCompact } from '../lib/format';
-import { LANDMARK_KINDS, useUiStore, type EntityRef } from '../store/uiStore';
+import { LANDMARK_KINDS, useUiStore, type EntityRef, type LandmarkKind } from '../store/uiStore';
 import type { ChamadoDTO, FaturaDTO, ProjetoDTO } from '../types/domain';
 import { computeSaldo } from '../world/health';
 import { clienteCode, clienteNome, isChamadoAberto, isProjetoEmObras, LANDMARK_META, projetoCode } from '../world/status';
+import { useMetasAtivas } from './useMetas';
 import { useWorld } from './useWorld';
 
 export interface District {
@@ -39,6 +40,10 @@ export function useDistricts() {
   const world = useWorld();
   const selected = useUiStore((s) => s.selected);
   const yard = useUiStore((s) => s.yard);
+  const interior = useUiStore((s) => s.interior);
+
+  // A Prefeitura mostra metas, não contratos.
+  const ativas = useMetasAtivas();
 
   const districts = useMemo<District[]>(() => {
     const abertos = world.chamados.filter(isChamadoAberto);
@@ -64,11 +69,12 @@ export function useDistricts() {
         };
       });
 
-    const landmarkSub = {
+    const landmarkSub: Record<LandmarkKind, string> = {
       datacenter: world.observabilidade?.habilitado ? 'monitorando VPS' : 'offline em dev',
       banco: `saldo ${formatBRLCompact(computeSaldo(world.faturas, world.despesas))}`,
       universidade: `${world.wikiPaginas.length} artigos`,
-      prefeitura: `${world.contratos.filter((c) => c.status === 'Ativo').length} contratos ativos`,
+      prefeitura: `${ativas} meta${ativas === 1 ? '' : 's'} em andamento`,
+      escritorio: `${world.contratos.filter((c) => c.status === 'Ativo').length} contratos ativos`,
     };
 
     const landmarks = LANDMARK_KINDS.map<District>((kind) => ({
@@ -80,9 +86,28 @@ export function useDistricts() {
     }));
 
     return [overview, ...clientes, ...landmarks];
-  }, [world]);
+  }, [world, ativas]);
 
   const current = useMemo<District>(() => {
+    if (interior === 'banco') {
+      const saldo = computeSaldo(world.faturas, world.despesas);
+      return {
+        key: 'banco:agencia',
+        code: LANDMARK_META.banco.code,
+        nome: 'Agência',
+        sub: `extrato · saldo ${formatBRLCompact(saldo)}`,
+        target: { kind: 'banco' },
+      };
+    }
+    if (interior === 'universidade') {
+      return {
+        key: 'universidade:biblioteca',
+        code: LANDMARK_META.universidade.code,
+        nome: 'Biblioteca',
+        sub: `wiki · ${world.wikiPaginas.length} artigos`,
+        target: { kind: 'universidade' },
+      };
+    }
     if (yard) {
       const projeto = world.projetos.find((p) => p.idProjeto === yard);
       return {
@@ -95,10 +120,11 @@ export function useDistricts() {
     }
     if (!selected) return districts[0];
     if ((LANDMARK_KINDS as string[]).includes(selected.kind)) return districts.find((d) => d.key === selected.kind)!;
-    if (selected.kind === 'colaborador') return districts.find((d) => d.key === 'prefeitura')!;
+    // A equipe mora no Escritório desde que a Prefeitura virou o gerenciador de metas.
+    if (selected.kind === 'colaborador') return districts.find((d) => d.key === 'escritorio')!;
     const idCliente = contextClienteId(selected, world);
     return districts.find((d) => d.key === `cliente:${idCliente}`) ?? districts[0];
-  }, [selected, districts, world, yard]);
+  }, [selected, districts, world, yard, interior]);
 
   return { districts, current };
 }

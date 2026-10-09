@@ -26,6 +26,8 @@ export function DistrictSelector() {
   const clearSelection = useUiStore((s) => s.clearSelection);
   const controls = useUiStore((s) => s.controls);
   const yard = useUiStore((s) => s.yard);
+  const interior = useUiStore((s) => s.interior);
+  const exitInterior = useUiStore((s) => s.exitInterior);
   const exitYard = useUiStore((s) => s.exitYard);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -37,6 +39,7 @@ export function DistrictSelector() {
     if (d.target) select(d.target); // select já sai do pátio, se for o caso
     else {
       if (yard) exitYard(false);
+      if (interior) exitInterior(false);
       clearSelection();
       goOverview(controls);
     }

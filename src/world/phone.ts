@@ -1,4 +1,5 @@
 import type { ChamadoDTO, ChamadoStatus, ClienteDTO, Prioridade } from '../types/domain';
+import { formatarDia, hojeISO } from './datas';
 import { clienteNome, isChamadoAberto } from './status';
 import { norm } from './text';
 
@@ -170,16 +171,7 @@ export function blocosDaConversa(mensagens: MensagemLike[], chamados: ChamadoDTO
 // ─── Prazo da conversão ─────────────────────────────────────────────────────
 
 /** `yyyy-mm-dd` → `dd/mm/aaaa` sem passar por `Date` (que leria a string como UTC e viraria o dia). */
-export function formatarPrazo(valor: string): string {
-  const [ano, mes, dia] = valor.split('-');
-  return dia && mes && ano ? `${dia}/${mes}/${ano}` : valor;
-}
-
-function hojeISO(agora: Date): string {
-  const m = String(agora.getMonth() + 1).padStart(2, '0');
-  const d = String(agora.getDate()).padStart(2, '0');
-  return `${agora.getFullYear()}-${m}-${d}`;
-}
+export const formatarPrazo = formatarDia;
 
 /** Mensagem de erro do campo, ou `null` se o prazo serve. */
 export function prazoInvalido(valor: string, agora = new Date()): string | null {

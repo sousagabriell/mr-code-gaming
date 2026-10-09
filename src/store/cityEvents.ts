@@ -3,10 +3,19 @@ import type { CarModel } from '../scene/assets';
 import type { Vec3 } from '../world/layout';
 import type { Path } from '../world/routes';
 
-/** Animações passageiras disparadas por mudanças nos dados (não existem no backend). */
+/**
+ * Animações passageiras disparadas por mudanças nos dados (não existem no backend). A fila é uma só
+ * para os dois cenários — cada um renderiza os tipos que conhece e ignora o resto.
+ */
 export type CityEvent =
+  // Cidade
   | { id: string; kind: 'truck-leave'; from: Vec3; vehicle: CarModel }
-  | { id: string; kind: 'armored'; path: Path };
+  | { id: string; kind: 'armored'; path: Path }
+  // Agência: malote entrando (recebimento) ou saindo (pagamento), e o pisca-pisca do caixa
+  | { id: string; kind: 'malote'; sentido: 'entra' | 'sai' }
+  | { id: string; kind: 'extrato-ping' }
+  // Biblioteca: o leitor "memorizou" o artigo que acabou de ser copiado
+  | { id: string; kind: 'wiki-memo'; titulo: string };
 
 interface CityEventsState {
   /** Vira true depois da primeira carga — antes disso nada "chega" nem "parte", só aparece. */

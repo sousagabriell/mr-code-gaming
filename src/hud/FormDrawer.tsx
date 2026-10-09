@@ -1,4 +1,4 @@
-import { ArrowDownToLine, Building2, Construction, Package, PaintRoller, Pencil, Receipt, Ticket, X } from 'lucide-react';
+import { ArrowDownToLine, Building2, Construction, Package, PaintRoller, Pencil, Target, Ticket, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useUiStore, type DrawerState } from '../store/uiStore';
 import { AtividadeForm } from './forms/AtividadeForm';
@@ -6,8 +6,7 @@ import { ChamadoForm } from './forms/ChamadoForm';
 import { ClienteForm } from './forms/ClienteForm';
 import { ColunaForm } from './forms/ColunaForm';
 import { ConverterChamadoForm } from './forms/ConverterChamadoForm';
-import { DespesaForm } from './forms/DespesaForm';
-import { FaturaForm } from './forms/FaturaForm';
+import { MetaForm } from './forms/MetaForm';
 import { ProjetoForm } from './forms/ProjetoForm';
 import { IconButton, IconTile } from './ui';
 
@@ -76,33 +75,19 @@ function meta(drawer: DrawerState): { icon: ReactNode; title: string; subtitle: 
         subtitle: 'O chamado vira uma caixa no pátio de um projeto do cliente.',
         body: <ConverterChamadoForm idChamado={drawer.idChamado} />,
       };
-    case 'nova-fatura':
+    case 'nova-meta':
       return {
-        icon: <Receipt className="h-5 w-5" />,
-        title: 'Emitir fatura',
-        subtitle: 'Entra no extrato da agência como valor a receber.',
-        body: <FaturaForm />,
+        icon: <Target className="h-5 w-5" />,
+        title: 'Nova meta',
+        subtitle: 'Um objetivo com prazo e recompensa em XP para a cidade.',
+        body: <MetaForm />,
       };
-    case 'editar-fatura':
+    case 'editar-meta':
       return {
         icon: <Pencil className="h-5 w-5" />,
-        title: 'Editar fatura',
-        subtitle: 'O número é gerado pelo MrCodeAdmin e não muda.',
-        body: <FaturaForm idFatura={drawer.idFatura} />,
-      };
-    case 'nova-despesa':
-      return {
-        icon: <Receipt className="h-5 w-5" />,
-        title: 'Lançar despesa',
-        subtitle: 'Sai do caixa da cidade e pesa no saldo do mês.',
-        body: <DespesaForm />,
-      };
-    case 'editar-despesa':
-      return {
-        icon: <Pencil className="h-5 w-5" />,
-        title: 'Editar despesa',
-        subtitle: 'Valor, categoria e recorrência do lançamento.',
-        body: <DespesaForm idDespesa={drawer.idDespesa} />,
+        title: 'Editar meta',
+        subtitle: 'Alvo, prazo e recompensa — ou remover a meta.',
+        body: <MetaForm id={drawer.id} />,
       };
   }
 }

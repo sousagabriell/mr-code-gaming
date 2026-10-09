@@ -2,8 +2,15 @@ import { useEffect } from 'react';
 import { useAnimations } from '@react-three/drei';
 import { useKenneyModel } from '../kenney';
 
-/** Animações do kit Kenney Mini Characters usadas na cidade. */
-export type CharacterAnimation = 'idle' | 'walk' | 'interact-right' | 'pick-up' | 'emote-yes';
+/** Animações do kit Kenney Mini Characters usadas no jogo (o kit traz ~30; estas são as que usamos). */
+export type CharacterAnimation =
+  | 'idle'
+  | 'walk'
+  | 'interact-right'
+  | 'pick-up'
+  | 'emote-yes'
+  /** Biblioteca: sentado à mesa de leitura. */
+  | 'sit';
 
 /** Personagem animado (esqueleto clonado por instância; geometria e textura compartilhadas). */
 export function CharacterModel({

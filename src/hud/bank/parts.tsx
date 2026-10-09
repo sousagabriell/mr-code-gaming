@@ -139,10 +139,7 @@ export function AcaoLinha({
 }) {
   return (
     <button
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
+      onClick={onClick}
       disabled={disabled}
       aria-label={label}
       title={label}
@@ -167,7 +164,8 @@ const TONE_ICON = {
 
 /**
  * Uma linha do extrato — a "transação" do portal: ícone de status, título, subtítulo, valor com
- * sinal e as ações. Clicar na linha abre a edição.
+ * sinal e as ações. Abrir a edição é um `<button>` **irmão** das ações, não um contêiner delas:
+ * aninhar botões faria o nome acessível da linha engolir o das ações (e o clique cair na linha).
  */
 export function LinhaExtrato({
   icone,
@@ -191,36 +189,27 @@ export function LinhaExtrato({
   onClick: () => void;
 }) {
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onClick();
-        }
-      }}
-      className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-surface-2"
-    >
-      <span className={cx('grid h-8 w-8 shrink-0 place-items-center rounded-lg', TONE_ICON[tone])}>{icone}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[12.5px] font-semibold leading-snug text-ink">{titulo}</span>
-        <span className="block truncate text-[10.5px] text-ink-3">{subtitulo}</span>
-      </span>
-      <span className="shrink-0 text-right">
-        <span
-          className={cx(
-            'block whitespace-nowrap text-[12.5px] font-bold tabular',
-            sinal === '+' ? 'text-ok' : sinal === '−' ? 'text-bad' : 'text-ink-2'
-          )}
-        >
-          {sinal}
-          {formatBRL(valor)}
+    <div className="flex w-full items-center gap-1 rounded-xl px-2 py-1.5 transition-colors hover:bg-surface-2">
+      <button onClick={onClick} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
+        <span className={cx('grid h-8 w-8 shrink-0 place-items-center rounded-lg', TONE_ICON[tone])}>{icone}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[12.5px] font-semibold leading-snug text-ink">{titulo}</span>
+          <span className="block truncate text-[10.5px] text-ink-3">{subtitulo}</span>
         </span>
-        {chip}
-      </span>
-      <span className="flex shrink-0 gap-1">{acoes}</span>
+        <span className="shrink-0 text-right">
+          <span
+            className={cx(
+              'block whitespace-nowrap text-[12.5px] font-bold tabular',
+              sinal === '+' ? 'text-ok' : sinal === '−' ? 'text-bad' : 'text-ink-2'
+            )}
+          >
+            {sinal}
+            {formatBRL(valor)}
+          </span>
+          {chip}
+        </span>
+      </button>
+      <span className="flex shrink-0 gap-1 pl-1">{acoes}</span>
     </div>
   );
 }

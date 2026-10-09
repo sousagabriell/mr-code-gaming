@@ -7,13 +7,10 @@ import { useYard } from '../hooks/useYard';
 import { entityKey, useUiStore } from '../store/uiStore';
 import { getMover } from './movers';
 import { useReducedMotion } from '../hooks/useReducedMotion';
-import { BANK_CAMERA, buildBankLayout } from '../world/bank';
+import { INTERIOR_BOUNDS, INTERIOR_CAMERA } from '../world/interiors';
 import { OVERVIEW_CAMERA, type Vec3 } from '../world/layout';
 import { entityPosition } from '../world/positions';
 import { YARD_CAMERA } from '../world/yard';
-
-/** Fixo: a sala não muda de tamanho com os dados. */
-const BANK_BOUNDS = buildBankLayout().bounds;
 
 /** Distância máxima da câmera ao focar uma entidade — aproxima sem "colar" no objeto. */
 export const FOCUS_DISTANCE = 15;
@@ -28,7 +25,7 @@ export function CameraRig() {
   const layout = useCityLayout();
   const { chamados, faturas } = useWorld();
   const { idProjeto: yard, layout: yardLayout } = useYard();
-  const banco = useUiStore((s) => s.banco);
+  const interior = useUiStore((s) => s.interior);
   const reduced = useReducedMotion();
 
   // Movimento reduzido: a câmera "corta" para o destino em vez de deslizar.
@@ -67,8 +64,8 @@ export function CameraRig() {
     };
   }, [setControls]);
 
-  // O pan fica preso à área visível: a cidade (cresce com os lotes), o pátio aberto ou a agência.
-  const bounds = banco ? BANK_BOUNDS : yard && yardLayout ? yardLayout.bounds : layout.bounds;
+  // O pan fica preso à área visível: a cidade (cresce com os lotes), o pátio aberto ou o interior.
+  const bounds = interior ? INTERIOR_BOUNDS[interior] : yard && yardLayout ? yardLayout.bounds : layout.bounds;
   useEffect(() => {
     const { minX, maxX, minZ, maxZ } = bounds;
     controlsRef.current?.setBoundary(new Box3(new Vector3(minX - 2, 0, minZ - 2), new Vector3(maxX + 2, 3, maxZ + 2)));
@@ -86,10 +83,12 @@ export function CameraRig() {
     if (yard) frameYard();
   }, [yard, yardReady]);
 
-  // Entrar na agência: enquadra a sala (não depende de dado nenhum, o layout é fixo).
+  // Entrar num interior: enquadra a sala (não depende de dado nenhum, o layout é fixo).
   useEffect(() => {
-    if (banco) controlsRef.current?.setLookAt(...BANK_CAMERA.position, ...BANK_CAMERA.target, true);
-  }, [banco]);
+    if (!interior) return;
+    const cam = INTERIOR_CAMERA[interior];
+    controlsRef.current?.setLookAt(...cam.position, ...cam.target, true);
+  }, [interior]);
 
   const target = useMemo((): Vec3 | null => {
     if (!selected) return null;
@@ -97,9 +96,9 @@ export function CameraRig() {
       const crate = yardLayout?.crates.find((c) => c.atividade.idAtividade === selected.id);
       return crate ? [crate.position[0], crate.position[1] + 0.4, crate.position[2]] : null;
     }
-    // Na agência não há entidade para voar até: o extrato é todo HUD.
-    return yard || banco ? null : entityPosition(selected, layout, { chamados, faturas });
-  }, [selected, layout, chamados, faturas, yard, banco, yardLayout]);
+    // Nos interiores não há entidade para voar até: o painel é todo HUD.
+    return yard || interior ? null : entityPosition(selected, layout, { chamados, faturas });
+  }, [selected, layout, chamados, faturas, yard, interior, yardLayout]);
   const targetKey = target?.join(',');
 
   // Voa até a seleção. Depende de targetKey para também focar quando os dados chegam depois

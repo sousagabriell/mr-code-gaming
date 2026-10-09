@@ -23,6 +23,7 @@ function DockButton({ label, onClick, children, primary }: { label: string; onCl
 /** Celular: ações principais no polegar (sem teclado para "/", "G", "B", "Esc"). */
 export function MobileDock() {
   const setSearchOpen = useUiStore((s) => s.setSearchOpen);
+  // Na agência o extrato é a própria folha inferior — esta barra nem chega a ser montada lá.
   const yard = useUiStore((s) => s.yard);
   const exitYard = useUiStore((s) => s.exitYard);
   const openDrawer = useUiStore((s) => s.openDrawer);

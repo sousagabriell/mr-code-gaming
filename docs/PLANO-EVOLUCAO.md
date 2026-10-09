@@ -6,7 +6,7 @@
 
 ---
 
-## Status (07/10/2026)
+## Status (09/10/2026)
 
 > Correções feitas no backend (mr-code-admin) ao longo do caminho, ainda não commitadas lá:
 > numeração de faturas (`FaturaDomainService.GerarProximoNumero`) e conflito de tracking do EF ao
@@ -120,11 +120,16 @@
 | **Kanban do projeto** | Ao entrar no projeto: **pátio com zonas** (uma por coluna), atividades = **caixas/pallets** coloridos por tipo (Tarefa/Bug/Melhoria/Chamado) | coluna de conclusão = zona de "expedição" |
 | **Colaborador** | Personagem/empilhadeira com rótulo; anda até o projeto onde está alocado; carrega a caixa da atividade pela qual é responsável | parado/ocupado |
 | **Chamado** | Caminhão com logo do sistema de origem estacionado na doca do cliente | Aberto = chegando/esperando; EmAndamento = descarregando; Resolvido/Fechado = vai embora |
-| **Contrato** | Pergaminho/selo na **Prefeitura**; contratos ativos = bandeiras nos lotes | aguardando aprovação = pin âmbar |
+| **Contrato** | Selo no **Escritório**; contratos ativos = bandeiras nos lotes | aguardando aprovação = pin âmbar |
 | **Fatura** | Fila no **Banco Central**; paga = carro-forte entrando no cofre | atrasada = pin vermelho no lote do cliente |
 | **Despesa** | Saída de moedas do Banco | — |
-| **Wiki** | **Universidade/Biblioteca**; cada página = livro na estante | recém-atualizada brilha |
+| **Wiki** | **Universidade**; entrar abre a **biblioteca**, onde cada artigo é uma lombada na estante — uma prateleira por projeto | livro aberto fica puxado para fora; o leitor vai buscá-lo |
+| **Metas de XP** | **Prefeitura**: objetivos da equipe com prazo e recompensa | em andamento / cumprida (selo) / expirada |
 | **Observabilidade** | **Data Center** com racks; luzes por CPU/mem/disco | crítico = fumaça/alarme |
+
+> **O que de fato foi construído** (ver MANUAL-TECNICO §9): a fileira cívica tem **cinco** prédios —
+> Data Center, Banco Central, Universidade, Prefeitura e Escritório —, e três deles abrem cenário
+> próprio: o **pátio de obras** (projeto), a **agência** do BC e a **biblioteca** da UN.
 
 ---
 
@@ -219,7 +224,7 @@ abrir chamado interno, iniciar/resolver/fechar/reabrir e assumir chamado (otimis
 | Emitir fatura, **pagar**, estornar, cancelar | `POST /Fatura`, `PATCH pagar/estornar/cancelar` | carro-forte vai ao Banco; moedas |
 | Lançar / pagar despesa | `POST /Despesa`, `PATCH pagar` | moedas saem do cofre |
 | Gerar recorrentes do mês | `POST .../gerar-recorrentes` | fila de faturas no Banco |
-| Escrever página da wiki (texto simples; rico abre no Admin) | `POST`/`PUT`/`DELETE /Wiki` | livro aparece na estante |
+| ~~Escrever página da wiki~~ — **só leitura**: o artigo é lido na biblioteca, a edição abre o Admin | `GET /Wiki` | o leitor busca a lombada na estante |
 | **Contratar colaborador** (ADMIN) / ativar-inativar | `POST /UsuarioAdmin`, `PATCH ativo` | cidadão chega de ônibus / vai embora |
 
 Fora de escopo no jogo (continua via "↗ Abrir no MrCodeAdmin"): editor rico da wiki com imagens, página
@@ -253,7 +258,13 @@ pública de aprovação de contrato.
 - [x] Saúde 0–100 → clima na cena (sol / nublado / chuva / tempestade com relâmpagos e alerta)
 - [x] 6 missões semanais, 12 conquistas (guardadas por usuário no navegador), ranking semanal da equipe
 - [x] Feedback: toasts "+XP · categoria", celebração de nível (inclusive "enquanto você estava fora"), sons opcionais
-- Persistência no backend (§7) continua opcional: hoje conquistas ficam no localStorage de cada navegador.
+- [x] **Metas da equipe (09/10/2026)**: a Prefeitura virou o gerenciador — objetivo com métrica, alvo,
+      janela e recompensa, para a cidade ou para uma pessoa. O progresso continua saindo do dado real,
+      recortado pela janela; a meta cumprida vale XP de bônus e deixa um selo com a data.
+      Contratos e equipe foram para o **Escritório**, prédio novo da fileira cívica.
+- Persistência no backend (§7) continua pendente: conquistas, tour e **metas** ficam no localStorage de
+  cada navegador. Com as metas isso passou a ter consequência: o **XP deixou de ser reproduzível só
+  com o backend**, porque o bônus mora no navegador (MANUAL-TECNICO §12 e §17).
 
 Cuidados: XP nunca deve incentivar ação errada (ex.: fechar chamado sem resolver) — premiar **resultado**
 (ex.: chamado fechado sem reabertura em 7 dias) e não volume bruto.
@@ -280,6 +291,29 @@ Cuidados: XP nunca deve incentivar ação errada (ex.: fechar chamado sem resolv
 - [x] Barra superior enxuta: sai o chip "Live" (o relógio e a sincronização vivem no celular; sobra o
       alerta "Reconectando") e entram os controles de câmera na horizontal, a partir de 1024px
       (MANUAL-TECNICO §10.2)
+- [x] **Agência do Banco Central**: terceiro cenário do jogo (como o pátio), com o interior montado no
+      kit de móveis da Kenney e o **extrato completo** na coluna da direita — faturas e despesas em
+      abas, navegador de mês, resumo, filtros e todas as ações do portal, inclusive criar e editar.
+      O financeiro saiu do "fora de escopo" (MANUAL-TECNICO §9.10 e §10.3)
+- [x] **Agência viva**: calendário clicável na parede do fundo (o mês escolhido redesenha o extrato),
+      malote entrando no cofre a cada recebimento e saindo a cada pagamento, clarão no caixa ao salvar
+      um lançamento, e o **detalhe da transação** num painel à esquerda do extrato — leitura primeiro,
+      "Editar" depois (MANUAL-TECNICO §9.10 e §10.3)
+- [x] **Biblioteca da Universidade**: quarto cenário, e o primeiro em que a cena *é* a navegação —
+      uma prateleira por projeto, cada artigo da wiki uma lombada clicável, e o artigo lido dentro do
+      jogo no painel da direita. A casca da sala virou código compartilhado com a agência
+      (`world/interior.ts` + `scene/interior/`), e `uiStore.banco` virou `uiStore.interior`, um campo
+      para todos os cenários internos. A **leitura** da wiki saiu do "fora de escopo"; criar e editar
+      continuam no Angular (MANUAL-TECNICO §9.9, §9.11 e §10.4)
+- [x] **Biblioteca viva**: um leitor sentado à mesa que, a cada artigo aberto, levanta, vai buscar
+      aquela lombada na estante e volta com ela; copiar o artigo faz ele comemorar com um balão de
+      "memorizei" (MANUAL-TECNICO §9.11). Em dev, com a wiki vazia, um acervo de exemplo enche a
+      estante para a feature poder ser vista sem mexer no banco (§10.4)
+- [x] **Escritório e a Prefeitura das metas**: contratos e equipe saem da Prefeitura para um prédio
+      novo (o quinto da fileira cívica), e a Prefeitura vira o gerenciador de **metas de XP** —
+      cadastrar, editar, dar prazo e recompensa, para a cidade ou para uma pessoa. A meta cumprida
+      vale XP de bônus e deixa um selo. Metas e bônus ficam no navegador, por usuário
+      (MANUAL-TECNICO §10.5, §12 e §17)
 - [ ] Deploy automático (incluir no `cd.yml` do MrCodeAdmin? — decisão de infraestrutura)
 
 ---
@@ -309,7 +343,11 @@ Cuidados: XP nunca deve incentivar ação errada (ex.: fechar chamado sem resolv
 
 ## 8. Decisões em aberto
 
-1. **Tema claro como padrão?** As referências são claras; a recomendação é claro por padrão e escuro como noite/alerta.
-2. **Gamificação no backend já na Fase 5** ou começar com XP derivado só no front?
-3. **Escopo de edição no jogo**: o plano mantém wiki rica e aprovação pública no Angular — ok?
-4. **Assets**: procedural + GLTF CC0, ou haverá um designer 3D para modelos próprios?
+1. ~~**Tema claro como padrão?**~~ → **decidido**: tema claro "maquete", sem modo escuro.
+2. **Gamificação no backend.** Já não é mais "quando": com as metas, o XP deixou de ser reproduzível
+   só com o backend. O contrato de API proposto está em MANUAL-TECNICO §17; falta decidir se entra.
+3. ~~**Escopo de edição no jogo**~~ → **decidido**: financeiro e metas são operados aqui; wiki é só
+   leitura (o editor rico com imagens fica no Angular), assim como contratos e CRUD de equipe.
+4. **Assets**: procedural + GLTF CC0, ou haverá um designer 3D para modelos próprios? Hoje são cinco
+   kits da Kenney (CC0) com as cores trocadas pela paleta do tema.
+5. **Deploy automático do City**: entra no `cd.yml` do MrCodeAdmin? (MANUAL-TECNICO §19)

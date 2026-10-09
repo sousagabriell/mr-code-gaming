@@ -87,12 +87,25 @@ export function nearestVerticalRoadX(x: number): number {
   return verticalRoadXs().reduce((best, vx) => (Math.abs(vx - x) < Math.abs(best - x) ? vx : best));
 }
 
+/**
+ * A fileira cívica. O quinto prédio **comprimiu o passo de 5 para 4** em vez de esticar a fileira
+ * para a direita: esticada, o Escritório caía fora da visão geral, e afastar a câmera para alcançá-lo
+ * encolhia a cidade inteira.
+ *
+ * A fileira também não é simétrica em torno de 0, e isso é de propósito: centrada, um prédio cairia
+ * em x = 0, em cima da fonte da praça. Deslocada meio passo, nenhum prédio divide x com a decoração —
+ * `signs.test.ts` cruza as duas tabelas e falha se alguém quebrar isso.
+ */
 export const LANDMARKS: LandmarkPlot[] = [
-  { kind: 'datacenter', position: [-7.5, 0, LANDMARK_Z] },
-  { kind: 'banco', position: [-2.5, 0, LANDMARK_Z] },
-  { kind: 'universidade', position: [2.5, 0, LANDMARK_Z] },
-  { kind: 'prefeitura', position: [7.5, 0, LANDMARK_Z] },
+  { kind: 'datacenter', position: [-10, 0, LANDMARK_Z] },
+  { kind: 'banco', position: [-6, 0, LANDMARK_Z] },
+  { kind: 'universidade', position: [-2, 0, LANDMARK_Z] },
+  { kind: 'prefeitura', position: [2, 0, LANDMARK_Z] },
+  { kind: 'escritorio', position: [6, 0, LANDMARK_Z] },
 ];
+
+/** Alcance mínimo do pan: a fileira cívica é mais larga que a grade de lotes. */
+const MIN_HALF_WIDTH = 11;
 
 const OVERVIEW_TARGET: Vec3 = [0, 0, 0.5];
 /** Só a direção importa (ângulo isométrico da vista); o comprimento vem de `OVERVIEW_DISTANCE`. */
@@ -210,8 +223,8 @@ export function buildCityLayout(
     nextLot: lotPosition(ordered.length),
     rows,
     bounds: {
-      minX: Math.min(-halfWidth, -9.5),
-      maxX: Math.max(halfWidth, 9.5),
+      minX: Math.min(-halfWidth, -MIN_HALF_WIDTH),
+      maxX: Math.max(halfWidth, MIN_HALF_WIDTH),
       minZ: LANDMARK_Z - 2.5,
       maxZ: LOTS_START_Z + (rows - 1) * LOT_SPACING + LOT_SPACING / 2,
     },
